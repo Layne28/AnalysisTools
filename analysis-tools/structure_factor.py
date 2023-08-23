@@ -13,15 +13,15 @@ import h5py
 import sys
 import numba
 
-import ParticleIO
-import MeasurementTools
+import particle_io
+import measurement_tools
 
 def main():
 
     ### Load data ####
 
     myfile = sys.argv[1] #Expects .h5 input file
-    traj = ParticleIO.load_traj(myfile) #Extract data
+    traj = particle_io.load_traj(myfile) #Extract data
     eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
 
     #### Compute allowed wavevectors ###
