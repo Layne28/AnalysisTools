@@ -28,6 +28,23 @@ def make_cubic_lattice():
 def make_fcc_lattice():
     return 0
 
+def make_1d_lattice():
+
+    #Create 1d lattice array
+    nx = 100
+    lat = np.zeros((1,nx,1))
+    for i in range(nx):
+        lat[0,i,0] = 1.0*i
+
+    #Create output file
+    myfile = h5py.File('./test_data/1d_lattice.h5')
+    myfile.create_dataset('/particles/all/position/value', data=lat)
+    myfile.create_dataset('/particles/all/position/time', data=np.array([0.0]))
+    myfile.create_dataset('/particles/all/position/step', data=np.array([0]))
+    myfile.create_dataset('/particles/all/velocity/value', data=np.zeros(lat.shape))
+    myfile.create_dataset('/particles/all/box/edges', data=np.array([nx,0,0]))
+
 if __name__=="__main__":
     make_cubic_lattice()
     make_fcc_lattice()
+    make_1d_lattice()
