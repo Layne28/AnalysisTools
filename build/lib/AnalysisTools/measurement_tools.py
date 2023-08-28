@@ -3,6 +3,7 @@
 
 import h5py
 import numpy as np
+import numpy.linalg as la
 import numba
 
 @numba.jit(nopython=True)
@@ -13,7 +14,7 @@ def get_min_disp(r1, r2, edges):
 
     INPUT: Two distance vectors (numpy arrays) and array of periodic box 
            dimensions.
-    OUTPUT: Displacement vector (numpy array)
+    OUTPUT: Displacement vector (numpy array.)
     """
 
     arr1 = edges/2.0
@@ -23,7 +24,23 @@ def get_min_disp(r1, r2, edges):
     rdiff = np.where(rdiff<arr2, rdiff+edges, rdiff)
     return rdiff
 
-def get_histogram(data, llim=np.nan, ulim=np.nan, nbins=50, nchunks=10):
+@numba.jit(nopython=True)
+def apply_min_image(disp_r, edges):
+
+    """
+    Apply the minimum image convention to a displacement vector.
+    
+    INPUT: Displacement vector (numpy array) and array of periodic box
+           dimensions.
+    OUTPUT: Displacement vector (numpy array.)
+    """
+
+    new_disp = np.zeros((disp_r.shape))
+    for i in range(new_disp.shape[0]):
+        new_disp[i,:] = get_min_disp(disp_r[i,:],np.zeros(disp_r.shape[0]),edges)
+    return new_disp
+
+def get_histogram(data, nskip=0, llim=np.nan, ulim=np.nan, nbins=50, nchunks=10):
 
     """
     Compute histogram of a scalar observable taken over a trajectory.
@@ -64,8 +81,9 @@ def get_histogram(data, llim=np.nan, ulim=np.nan, nbins=50, nchunks=10):
         the_dict['bins_%d' % n] = bins
         the_dict['hist_%d' % n] = hist
 
-    the_dict['avg_hist'] = get_hist_avg(the_dict)
-    the_dict['stddev_hist'] = get_hist_stddev(the_dict)
+    the_dict['avg_hist'] = get_hist_avg(the_dict, nskip=nskip)
+    the_dict['bins'] = bins
+    the_dict['stddev_hist'] = get_hist_stddev(the_dict, nskip=nskip)
 
     return the_dict
 
@@ -73,10 +91,10 @@ def get_histogram(data, llim=np.nan, ulim=np.nan, nbins=50, nchunks=10):
 def get_hist_avg(data, nskip=0):
 
     """
-    Compute histogram average over chunks
+    Compute histogram average over chunks.
 
     INPUT: Dictionary containing chunked histograms.
-    OUTPUT: Average histogram (numpy array)
+    OUTPUT: Average histogram (numpy array.)
     """
 
     nchunks = data['nchunks']
@@ -92,10 +110,10 @@ def get_hist_avg(data, nskip=0):
 def get_hist_stddev(data, nskip=0):
 
     """
-    Compute histogram standard deviation over chunks
+    Compute histogram standard deviation over chunks.
 
     INPUT: Dictionary containing chunked histograms.
-    OUTPUT: Standard deviation of chunk histograms (numpy array)
+    OUTPUT: Standard deviation of chunk histograms (numpy array.)
     """
 
     if 'avg_hist' in data.keys():
@@ -114,3 +132,32 @@ def get_hist_stddev(data, nskip=0):
     stddev = np.sqrt(stddev)
 
     return stddev
+
+#This function takes in a position trajectory and an array of bonds (fixed through trajectory)
+@numba.jit(nopython=True)
+def get_strain_bonds(pos, bonds, edges, leq):
+
+    """
+    Compute the strain in each bond in a network.
+    
+    INPUT: Positions of all particles during trajectory, array of bonds
+           (containing indices of 2 participating atoms), array of periodic box
+           dimensions, and equilibrium bond length.
+    OUTPUT: Strain of each bond (numpy array.)
+    """
+
+    nframes = pos.shape[0]
+    N = pos.shape[1]
+    nbonds = bonds.shape[0]
+    strain_arr = np.zeros((nframes, nbonds))
+
+    for t in range(nframes):
+        for i in range(nbonds):
+            b = bonds[i,:]
+            min_disp_vec = get_min_disp(pos[t,b[0],:], pos[t,b[1],:], edges)
+            pos1, pos2 = pos[t,b[0],:], pos[t,b[0],:]-min_disp_vec
+            if la.norm(pos1-pos2)>2:
+                print('Error!!')
+            strain = la.norm(min_disp_vec)-leq
+            strain_arr[t][i] = strain
+    return strain_arr

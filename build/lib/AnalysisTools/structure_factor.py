@@ -14,7 +14,7 @@ import sys
 import numba
 
 import matplotlib as mpl
-mpl.use('Agg')
+#mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 from . import particle_io
