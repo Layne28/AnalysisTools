@@ -27,24 +27,15 @@ def main():
     traj = particle_io.load_traj(myfile) #Extract data
     eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
 
-    #### Compute allowed wavevectors ###
-    dim=3
-    if traj['edges'][2]==0.0 and traj['edges'][1]!=0.0:
-        dim=2
-    elif traj['edges'][2]==0.0 and traj['edges'][1]==0.0:
-        dim=1
-    dq = np.pi/(5*np.max(traj['edges'])) #spacing
-    qmax = 2*np.pi #Assumes smallest relevant distance =1 for now
-    qvals = get_allowed_q(qmax, dq, dim)
-
-    #### Compute S(q) for each wavevector ####
-    sqvals = get_sq_range(traj['pos'], traj['edges'], qvals, eq_frac)
+    #Compute S(q)
+    qvals, sqvals = get_sq(traj, eq_frac)
 
     #### Output S(q) to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq.npz'
     np.savez(outfile, q=qvals, qmag=np.linalg.norm(qvals, axis=1), sq=sqvals)
 
     fig = plt.figure()
+    dim = traj['pos'].shape[2]
     if dim==3:
         plt.scatter(qvals[(qvals[:,1]==0) & (qvals[:,2]==0)][:,0],sqvals[(qvals[:,1]==0) & (qvals[:,2]==0)],color='blue',s=1)
     elif dim==2:
@@ -99,18 +90,36 @@ def get_allowed_q(qmax, dq, dim):
 
     return qlist[:cnt,:]
 
+def get_sq(traj, eq_frac, spacing=0.0, qmax=2*np.pi):
+
+    #### Compute allowed wavevectors ###
+    dim=3
+    if traj['edges'][2]==0.0 and traj['edges'][1]!=0.0:
+        dim=2
+    elif traj['edges'][2]==0.0 and traj['edges'][1]==0.0:
+        dim=1
+    if spacing==0.0:
+        spacing = np.pi/(1*np.max(traj['edges'])) #spacing
+        
+    qvals = get_allowed_q(qmax, spacing, dim)
+
+    #### Compute S(q) for each wavevector ####
+    sqvals = get_sq_range(traj['pos'], traj['edges'], qvals, eq_frac)
+
+    return qvals, sqvals
+
 @numba.jit(nopython=True)
 def get_sq_range(pos, edges, qvals, eq_frac):
 
     sqvals = np.zeros(qvals.shape[0],dtype=numba.complex128)
     for i in range(qvals.shape[0]):
         print(qvals[i,:])
-        sqvals[i] = get_sq(pos, edges, qvals[i,:], eq_frac)
+        sqvals[i] = get_single_point_sq(pos, edges, qvals[i,:], eq_frac)
 
     return sqvals
 
 @numba.jit(nopython=True)
-def get_sq(pos, edges, q, eq_frac):
+def get_single_point_sq(pos, edges, q, eq_frac):
 
     sq = 0. + 0.j
     N = pos.shape[1]

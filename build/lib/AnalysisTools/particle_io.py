@@ -14,6 +14,10 @@ def load_traj(myfile):
     vel = np.array(traj['/particles/all/velocity/value'])
     times = np.array(traj['/particles/all/position/time'])
     edges = np.array(traj['/particles/all/box/edges'])
+    for k in traj['/particles/all/box'].attrs.keys():
+        print(f"{k} => {traj['/particles/all/box'].attrs[k]}")
+    dim = traj['/particles/all/box'].attrs['dimension']
+    print('dimension: ', dim)
     if (('parameters/vmd_structure/bond_from' in traj) and
         ('parameters/vmd_structure/bond_to' in traj)):
         has_topology = 1
@@ -34,6 +38,7 @@ def load_traj(myfile):
     traj_dict['times'] = times
     traj_dict['edges'] = edges
     traj_dict['N'] = N
+    traj_dict['dim'] = dim
     if has_topology:
         traj_dict['bonds'] = bonds
 

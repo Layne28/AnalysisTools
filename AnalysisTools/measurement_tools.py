@@ -24,6 +24,20 @@ def get_min_disp(r1, r2, edges):
     rdiff = np.where(rdiff<arr2, rdiff+edges, rdiff)
     return rdiff
 
+@numba.jit(nopython=True) 
+def get_min_dist(r1, r2, edges):
+
+    """
+    Compute distance respecting the minimum image convention.
+
+    INPUT: Two distance vectors (numpy arrays) and array of periodic box 
+           dimensions.
+    OUTPUT: Distance (float.)
+    """
+
+    rdiff = get_min_disp(r1,r2,edges)
+    return la.norm(rdiff)
+
 @numba.jit(nopython=True)
 def apply_min_image(disp_r, edges):
 
