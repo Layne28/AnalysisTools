@@ -157,11 +157,9 @@ def create_cell_list(pos, edges, narr, sarr, dim):
 @numba.jit(nopython=True)
 def fill_cellneigh(narr, dim):
 
-    print('dim: ', dim)
-
     if dim==1:
         nx = int(narr[0])
-        cellneigh = np.zeros((nx, 3),dtype=numba.int32)
+        cellneigh = np.zeros((nx, 4),dtype=numba.int32)
         for ix in range(nx):
             icell = ix
             nneigh = 0
@@ -174,6 +172,7 @@ def fill_cellneigh(narr, dim):
                     jx -= nx
                 jcell = jx
                 cellneigh[icell][nneigh+1] = jcell
+                #print('nn+1: ', nneigh+1)
                 nneigh += 1
             cellneigh[icell][0] = nneigh
             if nneigh!=3:
@@ -182,7 +181,7 @@ def fill_cellneigh(narr, dim):
     elif dim==2:
         nx = int(narr[0])
         ny = int(narr[1])
-        cellneigh = np.zeros((nx*ny, 9),dtype=numba.int32) #at most 8 neighbor cells in 2D
+        cellneigh = np.zeros((nx*ny, 10),dtype=numba.int32) #at most 8 neighbor cells in 2D
         for ix in range(nx):
             for iy in range(ny):
                 icell = ix + iy*nx
@@ -211,7 +210,7 @@ def fill_cellneigh(narr, dim):
         nx = int(narr[0])
         ny = int(narr[1])
         nz = int(narr[2])
-        cellneigh = np.zeros((nx*ny*nz, 27),dtype=numba.int32) #at most 26 neighbor cells in 3D
+        cellneigh = np.zeros((nx*ny*nz, 28),dtype=numba.int32) #at most 26 neighbor cells in 3D
         for ix in range(nx):
             for iy in range(ny):
                 for iz in range(nz):
@@ -288,10 +287,11 @@ def harvest_cluster(clusternumber, ipart, cluster_id, pos, edges, head, cell_lis
 
     icell = int(cell_index[ipart])
     #print('nneigh: ', cell_neigh[icell][0])
-    for nc in range(cell_neigh[icell][0]-1):
+    for nc in range(cell_neigh[icell][0]):
         #print('icell: ', icell)
         #print('nc: ', nc)
         jcell = int(cell_neigh[icell][nc+1])
+        #print('jcell: ', jcell)
         jpart = int(head[jcell])
         while jpart != -1:
             if dim==1:
