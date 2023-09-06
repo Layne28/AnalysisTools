@@ -50,7 +50,7 @@ def cluster_traj(in_file,rc):
         #Create cell list for locating pairs of particles
         head, cell_list, cell_index = create_cell_list(traj['pos'][t,:,:], traj['edges'], ncell_arr, cellsize_arr, traj['dim'])
 
-        cluster_id = get_clusters(traj['pos'][t,:,:], traj['edges'][:(traj['dim'])], head, cell_list, cell_index, cell_neigh, rc, traj['dim'])
+        cluster_id = get_clusters(traj['pos'][t,:,:], traj['edges'][:(traj['dim'])], head, cell_list, cell_index, cell_neigh, rc, traj['dim'], traj['N'])
         cluster_id = sort_clusters(cluster_id)
         num_clusters[t] = np.max(cluster_id)
         unique, counts = np.unique(cluster_id, return_counts=True)          
@@ -98,7 +98,7 @@ def init_cell_list(edges, rcut, dim):
 
     return ncell_arr, cellsize_arr, cellneigh
 
-#@numba.jit()
+@numba.jit(nopython=True)
 def create_cell_list(pos, edges, narr, sarr, dim):
 
     if dim==1:
@@ -106,11 +106,8 @@ def create_cell_list(pos, edges, narr, sarr, dim):
         #print(ncells)
     elif dim==2:
         ncells = int(narr[0]*narr[1])
-    elif dim==3:
-        ncells = int(narr[0]*narr[1]*narr[2])
     else:
-        print('Error: dim is not 1,2, or 3')
-        return -1
+        ncells = int(narr[0]*narr[1]*narr[2])
 
     N = pos.shape[0]
     head = (-1)*np.ones(ncells)
@@ -254,15 +251,13 @@ def fill_cellneigh(narr, dim):
 #Cluster functions
 ##################
 
-#@numba.jit(nopython=True)
-def get_clusters(pos, edges, head, cell_list, cell_index, cell_neigh, rc, dim):
+@numba.jit(nopython=True)
+def get_clusters(pos, edges, head, cell_list, cell_index, cell_neigh, rc, dim, N):
 
     #Returns a numpy array specifying the index of the cluster
     #to which each node belongs
 
-    N = pos.shape[0]
-
-    cluster_id = np.zeros((N,),dtype=int)
+    cluster_id = np.zeros((N,),dtype=numba.int32)
 
     clusternumber = 0
     for i in range(N):
@@ -273,7 +268,7 @@ def get_clusters(pos, edges, head, cell_list, cell_index, cell_neigh, rc, dim):
 
     return cluster_id
 
-#@numba.jit(nopython=True)
+@numba.jit(nopython=True)
 def harvest_cluster(clusternumber, ipart, cluster_id, pos, edges, head, cell_list, cell_index, cell_neigh, rc, dim):
 
     #Note that due to limitations of numba this is restricted to 2d for now

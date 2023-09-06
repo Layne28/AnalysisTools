@@ -7,7 +7,7 @@ import AnalysisTools.cluster as cluster
 
 class TestClusterMethods(unittest.TestCase):
 
-    def test_cluster(self):
+    def test_cluster_1d(self):
 
         rc=1.6
 
@@ -15,6 +15,27 @@ class TestClusterMethods(unittest.TestCase):
 
         cluster_id_zeros = cluster.cluster_traj('./tests/test_data/1d_lattice.h5', 0.5)
         cluster_id_ones = cluster.cluster_traj('./tests/test_data/1d_lattice.h5', rc)
+
+        #Check that configuration with no nodes above threshold
+        #except self has N clusters
+        self.assertEqual(np.max(cluster_id_zeros),traj['N'])
+        
+        #Check that configuration with all nodes above threshold has only one cluster
+        self.assertEqual(np.max(cluster_id_ones),1)
+        
+        #Check that configuration with all particles in one cluster
+        #has size N
+        unique, counts = np.unique(cluster_id_ones, return_counts=True)
+        self.assertEqual(counts[0],traj['N'])
+
+    def test_cluster_3d(self):
+
+        rc=1.6
+
+        traj = io.load_traj('./tests/test_data/sc_lattice.h5')
+
+        cluster_id_zeros = cluster.cluster_traj('./tests/test_data/sc_lattice.h5', 0.5)
+        cluster_id_ones = cluster.cluster_traj('./tests/test_data/sc_lattice.h5', rc)
 
         #Check that configuration with no nodes above threshold
         #except self has N clusters
