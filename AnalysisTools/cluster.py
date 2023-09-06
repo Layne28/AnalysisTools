@@ -16,21 +16,75 @@ import faulthandler
 import AnalysisTools.measurement_tools as tools
 import AnalysisTools.particle_io as io
 
-def cluster_traj(in_file,rc):
+##################
+#Get Cluster Size Distribution (CSD) from cluster-labeled trajectory
+##################
+
+def get_csd(cluster_traj_name, nchunks=10, nskip=0):
+
+    #Read in data
+    clusters = h5py.File(cluster_traj_name, 'r')
+    times = np.array(clusters['data/time'])
+    cluster_ids = np.array(clusters['/data/cluster_ids'])
+    clusters.close()
+
+    traj_length = times.shape[0]
+    N = cluster_ids.shape[1]
+    num_clusters = np.zeros(traj_length)
+    cluster_sizes = []
+
+    #Count no. of clusters of different sizes
+    for t in range(traj_length):
+
+        cluster_id = cluster_ids[t,:]
+        num_clusters[t] = np.max(cluster_id)
+        unique, counts = np.unique(cluster_id, return_counts=True)
+        cluster_sizes.append(counts)
+
+    #Divide cluster sizes into chunks
+    the_dict = {}
+    the_dict['nchunks'] = nchunks
+    seglen = traj_length//nchunks
+
+    if seglen>0:
+        for n in range(nchunks):
+            
+            cluster_chunk = np.concatenate(cluster_sizes[(n*seglen):((n+1)*seglen)]).ravel()
+            hist, bin_edges = np.histogram(cluster_chunk, np.arange(0,N+2,1)-0.5, density=True)
+            bins = (bin_edges[:-1]+bin_edges[1:])/2
+
+            the_dict['bins_%d' % n] = bins
+            the_dict['hist_%d' % n] = hist
+    else:
+        the_dict['nchunks'] = 1
+        cluster_chunk = np.concatenate(cluster_sizes).ravel()
+        hist, bin_edges = np.histogram(cluster_chunk, np.arange(0,N+2,1)-0.5, density=True)
+        bins = (bin_edges[:-1]+bin_edges[1:])/2
+
+        the_dict['bins_0'] = bins
+        the_dict['hist_0'] = hist
+
+    the_dict['avg_hist'] = tools.get_hist_avg(the_dict, nskip=nskip)
+    the_dict['bins'] = bins
+    the_dict['stddev_hist'] = tools.get_hist_stddev(the_dict, nskip=nskip)
+    the_dict['nskipped'] = nskip
+
+    return the_dict
+
+        
+##################
+#Cluster an input trajectory
+##################
+
+def cluster_traj(traj,out_folder,rc):
 
     faulthandler.enable()
 
-    if not(in_file.endswith('.h5')):
-        print('Error: requires h5md file!')
-        exit()
-
-    in_folder = os.path.dirname(in_file)
     #Initialize data containers
     cluster_sizes = [] #number of nodes in clusters
     cluster_areas = [] #number of surface-exposed nodes in clusters
 
-    #Load trajectory
-    traj = io.load_traj(in_file)
+    #Get information from trajectory
     traj_length = traj['times'].shape[0]
     num_clusters = np.zeros(traj_length)
 
@@ -41,10 +95,10 @@ def cluster_traj(in_file,rc):
     print("Done.")
 
     #Create file for dumping clusters
-    cluster_file = h5py.File(in_folder + '/clusters_rc=%f.h5' % rc, 'w')
+    cluster_file = h5py.File(out_folder + '/clusters_rc=%f.h5' % rc, 'w')
 
     for t in range(traj_length):
-        if t%100==0:
+        if t%10==0:
             print('frame ', t)
 
         #Create cell list for locating pairs of particles
@@ -75,9 +129,7 @@ def cluster_traj(in_file,rc):
     num_hist, num_bin_edges = np.histogram(num_clusters, np.arange(0,traj['N']+2,1)-0.5, density=True)
 
     #Write data
-    np.savetxt(in_folder + '/cluster_hist_rc=%f.txt' % rc, np.c_[size_bins,cluster_size_hist,num_hist], header='bin size num')
-
-    return cluster_id
+    np.savetxt(out_folder + '/cluster_hist_rc=%f.txt' % rc, np.c_[size_bins,cluster_size_hist,num_hist], header='bin size num')
 
 ##################
 #Cell list functions

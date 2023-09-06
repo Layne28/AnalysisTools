@@ -6,6 +6,11 @@ import sys
 
 def load_traj(myfile):
     
+    #Check whether this is an h5 file
+    if not(myfile.endswith('.h5')):
+        print('Error: input to "load_traj" must be h5md file.')
+        return {}
+
     traj = h5py.File(myfile)
     traj_dict = {}
     has_topology = 0
@@ -14,10 +19,7 @@ def load_traj(myfile):
     vel = np.array(traj['/particles/all/velocity/value'])
     times = np.array(traj['/particles/all/position/time'])
     edges = np.array(traj['/particles/all/box/edges'])
-    for k in traj['/particles/all/box'].attrs.keys():
-        print(f"{k} => {traj['/particles/all/box'].attrs[k]}")
     dim = traj['/particles/all/box'].attrs['dimension']
-    print('dimension: ', dim)
     if (('parameters/vmd_structure/bond_from' in traj) and
         ('parameters/vmd_structure/bond_to' in traj)):
         has_topology = 1

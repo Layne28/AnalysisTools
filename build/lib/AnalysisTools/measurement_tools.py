@@ -98,6 +98,7 @@ def get_histogram(data, nskip=0, llim=np.nan, ulim=np.nan, nbins=50, nchunks=10)
     the_dict['avg_hist'] = get_hist_avg(the_dict, nskip=nskip)
     the_dict['bins'] = bins
     the_dict['stddev_hist'] = get_hist_stddev(the_dict, nskip=nskip)
+    the_dict['nskipped'] = nskip
 
     return the_dict
 
