@@ -184,9 +184,9 @@ def get_strain_bonds(pos, bonds, edges, leq):
         
         nframes = pos.shape[0]
         N = pos.shape[1]
-        nbonds = bonds.shape[0]
+        nbonds = bonds.shape[1]
         strain_arr = np.zeros((nframes, nbonds))
-        
+
         for t in range(nframes):
             for i in range(nbonds):
                 b = bonds[t,i,:]
