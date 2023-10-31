@@ -162,7 +162,7 @@ def get_strain_bonds(pos, bonds, edges, leq):
     """
 
     #Check whether connectivity changes
-    if (bonds.shape).size==2: #Fixed connectivity
+    if len(bonds.shape)==2: #Fixed connectivity
 
         nframes = pos.shape[0]
         N = pos.shape[1]
@@ -180,7 +180,7 @@ def get_strain_bonds(pos, bonds, edges, leq):
                 strain_arr[t][i] = strain
         return strain_arr
 
-    elif (bonds.shape).size==3: #Connectivity changes from frame to frame
+    elif len(bonds.shape)==3: #Connectivity changes from frame to frame
         
         nframes = pos.shape[0]
         N = pos.shape[1]
