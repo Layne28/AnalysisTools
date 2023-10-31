@@ -27,6 +27,9 @@ def load_traj(myfile):
         bonds_to = np.array(traj['parameters/vmd_structure/bond_to'])-1
         bonds = np.vstack((bonds_from, bonds_to)).T
         bonds = np.unique(bonds, axis=0)
+    elif ('/particles/all/connectivity' in traj):
+        has_topology = 1
+        bonds = np.array(traj['/particles/all/connectivity/value'])
     else:
         has_topology = 0
 

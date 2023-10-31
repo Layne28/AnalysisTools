@@ -15,7 +15,7 @@ import math
 import faulthandler
 import AnalysisTools.measurement_tools as tools
 import AnalysisTools.particle_io as io
-import AnalysisTools.cell_list as cell_list
+import AnalysisTools.cell_list as cl
 
 ##################
 #Get Cluster Size Distribution (CSD) from cluster-labeled trajectory
@@ -92,7 +92,7 @@ def cluster_traj(traj,out_folder,rc):
     #Initialize cell list
     print("Initializing cell list parameters...")
     #ncell_x, ncell_y, cellsize_x, cellsize_y, cell_neigh = init_cell_list(traj['edges'], 2.5)
-    ncell_arr, cellsize_arr, cell_neigh = cell_list.init_cell_list(traj['edges'], 2.5, traj['dim'])
+    ncell_arr, cellsize_arr, cell_neigh = cl.init_cell_list(traj['edges'], 2.5, traj['dim'])
     print("Done.")
 
     #Create file for dumping clusters
@@ -103,7 +103,7 @@ def cluster_traj(traj,out_folder,rc):
             print('frame ', t)
 
         #Create cell list for locating pairs of particles
-        head, cell_list, cell_index = cell_list.create_cell_list(traj['pos'][t,:,:], traj['edges'], ncell_arr, cellsize_arr, traj['dim'])
+        head, cell_list, cell_index = cl.create_cell_list(traj['pos'][t,:,:], traj['edges'], ncell_arr, cellsize_arr, traj['dim'])
 
         cluster_id = get_clusters(traj['pos'][t,:,:], traj['edges'][:(traj['dim'])], head, cell_list, cell_index, cell_neigh, rc, traj['dim'], traj['N'])
         cluster_id = sort_clusters(cluster_id)
