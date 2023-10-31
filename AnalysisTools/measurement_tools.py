@@ -161,18 +161,43 @@ def get_strain_bonds(pos, bonds, edges, leq):
     OUTPUT: Strain of each bond (numpy array.)
     """
 
-    nframes = pos.shape[0]
-    N = pos.shape[1]
-    nbonds = bonds.shape[0]
-    strain_arr = np.zeros((nframes, nbonds))
+    #Check whether connectivity changes
+    if (bonds.shape).size==2: #Fixed connectivity
 
-    for t in range(nframes):
-        for i in range(nbonds):
-            b = bonds[i,:]
-            min_disp_vec = get_min_disp(pos[t,b[0],:], pos[t,b[1],:], edges)
-            pos1, pos2 = pos[t,b[0],:], pos[t,b[0],:]-min_disp_vec
-            if la.norm(pos1-pos2)>2:
-                print('Error!!')
-            strain = la.norm(min_disp_vec)-leq
-            strain_arr[t][i] = strain
-    return strain_arr
+        nframes = pos.shape[0]
+        N = pos.shape[1]
+        nbonds = bonds.shape[0]
+        strain_arr = np.zeros((nframes, nbonds))
+
+        for t in range(nframes):
+            for i in range(nbonds):
+                b = bonds[i,:]
+                min_disp_vec = get_min_disp(pos[t,b[0],:], pos[t,b[1],:], edges)
+                pos1, pos2 = pos[t,b[0],:], pos[t,b[0],:]-min_disp_vec
+                if la.norm(pos1-pos2)>2:
+                    print('Error!!')
+                strain = la.norm(min_disp_vec)-leq
+                strain_arr[t][i] = strain
+        return strain_arr
+
+    elif (bonds.shape).size==3: #Connectivity changes from frame to frame
+        
+        nframes = pos.shape[0]
+        N = pos.shape[1]
+
+        for t in range(nframes):
+            nbonds = bonds.shape[1]
+            for i in range(nbonds):
+                b = bonds[t,i,:]
+                min_disp_vec = get_min_disp(pos[t,b[0],:], pos[t,b[1],:], edges)
+                pos1, pos2 = pos[t,b[0],:], pos[t,b[0],:]-min_disp_vec
+                if la.norm(pos1-pos2)>2:
+                    print('Error!!')
+                strain = la.norm(min_disp_vec)-leq
+                if la.norm(pos1-pos2)<1e-8: # (0,0 entries are given a "flag" to ignore)
+                    strain = 1e4
+                strain_arr[t][i] = strain
+        return strain_arr
+
+    else:
+        raise TypeError
