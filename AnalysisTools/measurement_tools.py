@@ -184,9 +184,10 @@ def get_strain_bonds(pos, bonds, edges, leq):
         
         nframes = pos.shape[0]
         N = pos.shape[1]
-
+        nbonds = bonds.shape[0]
+        strain_arr = np.zeros((nframes, nbonds))
+        
         for t in range(nframes):
-            nbonds = bonds.shape[1]
             for i in range(nbonds):
                 b = bonds[t,i,:]
                 min_disp_vec = get_min_disp(pos[t,b[0],:], pos[t,b[1],:], edges)
