@@ -5,8 +5,22 @@ import h5py
 import sys
 import numba
 
-from . import particle_io
-from . import measurement_tools
+import AnalysisTools.particle_io as particle_io
+import AnalysisTools.measurement_tools as measurement_tools
+
+def main():
+
+    ### Load data ####
+    myfile = sys.argv[1] #Expects .h5 input file
+    traj = particle_io.load_traj(myfile) #Extract data
+    tmax = 100.0
+    if len(sys.argv)>2:
+        tmax = float(sys.argv[2])
+    msd = get_msd(traj['pos'],traj['times'], tmax)
+
+    #### Output MSD to file in same directory as input h5 file ####        
+    outfile = '/'.join((myfile.split('/'))[:-1]) + '/msd.npz'
+    np.savez(outfile, times=msd[:,0], msd=msd[:,1])
 
 @numba.jit(nopython=True)
 def get_msd(pos, times, tmax=5.0):
@@ -43,3 +57,6 @@ def get_msd(pos, times, tmax=5.0):
         msd[t,1] /= N
 
     return msd
+
+if __name__ == '__main__':
+    main()

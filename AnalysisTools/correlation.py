@@ -8,8 +8,8 @@ import numba
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from . import particle_io
-from . import measurement_tools
+import AnalysisTools.particle_io as particle_io
+import AnalysisTools.measurement_tools as measurement_tools
 import AnalysisTools.cell_list as cl
 
 @numba.jit(nopython=True)

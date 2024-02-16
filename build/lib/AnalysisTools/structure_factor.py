@@ -17,8 +17,8 @@ import matplotlib as mpl
 #mpl.use('Agg')
 import matplotlib.pyplot as plt
 
-from . import particle_io
-from . import measurement_tools
+import AnalysisTools.particle_io as particle_io
+import AnalysisTools.measurement_tools as measurement_tools
 
 def main():
 

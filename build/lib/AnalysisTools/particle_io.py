@@ -72,16 +72,17 @@ def load_noise_traj(myfile):
     #noise data
     times = np.array(traj['/noise/time'])
     if dim==1:
+        noise = np.zeros((times.shape[0],ncells,1))
         noise = np.array(traj['/noise/value/x'])
     elif dim==2:
-        noise = np.zeros((ncells[0],ncells[1],2))
-        noise[:,:,0] = np.array(traj['noise/value/x'])
-        noise[:,:,1] = np.array(traj['noise/value/y'])
-    elif dim==3:
-        noise = np.zeros((ncells[0],ncells[1],ncells[2],3))
+        noise = np.zeros((times.shape[0],ncells[0],ncells[1],2))
         noise[:,:,:,0] = np.array(traj['noise/value/x'])
         noise[:,:,:,1] = np.array(traj['noise/value/y'])
-        noise[:,:,:,2] = np.array(traj['noise/value/z'])
+    elif dim==3:
+        noise = np.zeros((times.shape[0],ncells[0],ncells[1],ncells[2],3))
+        noise[:,:,:,:,0] = np.array(traj['noise/value/x'])
+        noise[:,:,:,:,1] = np.array(traj['noise/value/y'])
+        noise[:,:,:,:,2] = np.array(traj['noise/value/z'])
     else:
         print('Error: dim is ', dim, ', not 1, 2, or 3.')
         traj.close()

@@ -6,6 +6,12 @@ import numpy as np
 import numpy.linalg as la
 import numba
 
+
+
+###################
+#Particle functions
+###################
+
 @numba.jit(nopython=True)
 def get_min_disp(r1, r2, edges):
 
@@ -184,9 +190,10 @@ def get_strain_bonds(pos, bonds, edges, leq):
         
         nframes = pos.shape[0]
         N = pos.shape[1]
+        nbonds = bonds.shape[1]
+        strain_arr = np.zeros((nframes, nbonds))
 
         for t in range(nframes):
-            nbonds = bonds.shape[1]
             for i in range(nbonds):
                 b = bonds[t,i,:]
                 min_disp_vec = get_min_disp(pos[t,b[0],:], pos[t,b[1],:], edges)
@@ -201,3 +208,26 @@ def get_strain_bonds(pos, bonds, edges, leq):
 
     else:
         raise TypeError
+    
+###################
+#Noise functions
+###################
+    
+def get_rms_noise(noise):
+
+    """
+    Compute root mean square fluctuations in a noise trajectory.
+    
+    INPUT: Noise trajectory ((d+2)-dimensional numpy array, with
+           first dimension time (nframes),
+           next d dimensions {n_mu, mu=1,2,...,d},
+           and last dimension
+           d (components of field))
+    OUTPUT: RMS noise fluctuations for a single trajectory (scalar)
+    """
+
+    dim = noise.shape[-1]
+    rms = np.mean(np.multiply(noise,noise))*dim
+
+    return rms
+

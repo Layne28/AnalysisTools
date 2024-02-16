@@ -4,8 +4,10 @@ AnalysisTools/__init__.py
 AnalysisTools/cell_list.py
 AnalysisTools/cluster.py
 AnalysisTools/correlation.py
+AnalysisTools/histogram.py
 AnalysisTools/measurement_tools.py
 AnalysisTools/msd.py
+AnalysisTools/noise_stats.py
 AnalysisTools/particle_io.py
 AnalysisTools/structure_factor.py
 AnalysisTools.egg-info/PKG-INFO
