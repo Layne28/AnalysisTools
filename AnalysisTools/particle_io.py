@@ -49,6 +49,60 @@ def load_traj(myfile):
 
     return traj_dict
 
+def load_noise_traj(myfile):
+    
+    #Check whether this is an h5 file
+    if not(myfile.endswith('.h5')):
+        print('Error: input to "load_noise_traj" must be h5md file.')
+        return {}
+
+    traj = h5py.File(myfile)
+    traj_dict = {}
+
+    #noise parameters
+    Lambda = np.array(traj['/parameters/lambda'])
+    tau = np.array(traj['/parameters/tau'])
+    D = np.array(traj['/parameters/D'])
+
+    #grid dimensions
+    ncells = np.array(traj['/grid/dimensions'])
+    spacing = np.array(traj['/grid/spacing'])
+    dim = ncells.shape[0]
+
+    #noise data
+    times = np.array(traj['/noise/time'])
+    if dim==1:
+        noise = np.array(traj['/noise/value/x'])
+    elif dim==2:
+        noise = np.zeros((ncells[0],ncells[1],2))
+        noise[:,:,0] = np.array(traj['noise/value/x'])
+        noise[:,:,1] = np.array(traj['noise/value/y'])
+    elif dim==3:
+        noise = np.zeros((ncells[0],ncells[1],ncells[2],3))
+        noise[:,:,:,0] = np.array(traj['noise/value/x'])
+        noise[:,:,:,1] = np.array(traj['noise/value/y'])
+        noise[:,:,:,2] = np.array(traj['noise/value/z'])
+    else:
+        print('Error: dim is ', dim, ', not 1, 2, or 3.')
+        traj.close()
+        exit()
+
+    traj.close()
+
+    #Assign data to dictionary
+    traj_dict['tau'] = tau
+    traj_dict['lambda'] = Lambda
+    traj_dict['D'] = D
+
+    traj_dict['dim'] = dim
+    traj_dict['ncells'] = ncells
+    traj_dict['spacing'] = spacing
+
+    traj_dict['times'] = times
+    traj_dict['noise'] = noise
+
+    return traj_dict
+
 if __name__ == '__main__':
     myfile = sys.argv[1]
     traj = load_traj(myfile)
