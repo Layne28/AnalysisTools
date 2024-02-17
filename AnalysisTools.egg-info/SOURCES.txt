@@ -10,6 +10,7 @@ AnalysisTools/msd.py
 AnalysisTools/noise_stats.py
 AnalysisTools/particle_io.py
 AnalysisTools/structure_factor.py
+AnalysisTools/trajectory_stats.py
 AnalysisTools.egg-info/PKG-INFO
 AnalysisTools.egg-info/SOURCES.txt
 AnalysisTools.egg-info/dependency_links.txt
