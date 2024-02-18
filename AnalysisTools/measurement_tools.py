@@ -226,8 +226,11 @@ def get_rms_noise(noise):
     OUTPUT: RMS noise fluctuations for a single trajectory (scalar)
     """
 
-    dim = noise.shape[-1]
-    rms = np.mean(np.multiply(noise,noise))*dim
+    if len(noise.shape)==2:
+        dim = 1
+    else:
+        dim = noise.shape[-1]
+    rms = np.sqrt(np.mean(noise**2)*dim)
 
     return rms
 

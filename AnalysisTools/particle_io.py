@@ -72,7 +72,7 @@ def load_noise_traj(myfile):
     #noise data
     times = np.array(traj['/noise/time'])
     if dim==1:
-        noise = np.zeros((times.shape[0],ncells,1))
+        noise = np.zeros((times.shape[0],ncells[0],1))
         noise = np.array(traj['/noise/value/x'])
     elif dim==2:
         noise = np.zeros((times.shape[0],ncells[0],ncells[1],2))

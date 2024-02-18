@@ -15,7 +15,7 @@ def main():
     filename = sys.argv[2] #Should either have no extension or be .npz
     if not('.npz' in filename):
         filename += '.npz'
-    subfolder = ''
+    subfolder = 'prod'
     if len(sys.argv)>3:
         subfolder = sys.argv[3]
     data = get_trajectory_data(basefolder, filename, subfolder=subfolder)
