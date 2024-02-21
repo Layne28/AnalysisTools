@@ -16,19 +16,21 @@ def main():
     tmax = 100.0
     if len(sys.argv)>2:
         tmax = float(sys.argv[2])
-    msd = get_msd(traj['pos'],traj['times'], tmax)
+    msd = get_msd(traj['pos'],traj['image'],traj['edges'],traj['times'], tmax)
 
     #### Output MSD to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/msd.npz'
     np.savez(outfile, times=msd[:,0], msd=msd[:,1])
 
 @numba.jit(nopython=True)
-def get_msd(pos, times, tmax=5.0):
+def get_msd(pos, image, edges, times, tmax=5.0):
 
     """
     Compute mean-squared displacement (MSD) of particles over a trajectory.
     
     INPUT: Positions (nframes x N x d numpy array),
+           Periodic image index array (nframes x N x d numpy array),
+           box edges (d numpy array)
            times (nframes numpy array),
            tmax (optional, max time to which to compute MSD)
     OUTPUT: Times and MSD vs time (2d numpy array)
@@ -48,15 +50,38 @@ def get_msd(pos, times, tmax=5.0):
     if fmax>times.shape[0]:
         fmax = times.shape[0]-1
     msd = np.zeros((fmax,2))
+
+    #unwrap trajectory
+    upos = unwrap(pos, image, edges, dim)
     
     for t in range(fmax):
         msd[t,0] = dt*t
         for i in range(N):
             for mu in range(dim):
-                msd[t,1] += np.mean((pos[:-fmax,i,mu] - pos[t:(-fmax+t),i,mu])**2)
+                msd[t,1] += np.mean((upos[:-fmax,i,mu] - upos[t:(-fmax+t),i,mu])**2)
         msd[t,1] /= N
 
     return msd
+
+@numba.jit(nopython=True)
+def unwrap(pos, image, edges, dim):
+
+    """
+    Unwrap a trajectory with periodic boundary conditions.
+    
+    INPUT: Positions (nframes x N x d numpy array),
+           Periodic image index array (nframes x N x d numpy array),
+           box edges (d numpy array),
+           dimensions (scalar)
+    OUTPUT: Unwrapped positions (nframes x N x d numpy array)
+    """
+
+    upos = np.zeros(pos.shape)
+    for t in range(pos.shape[0]):
+        for d in range(dim):
+            upos[t][0][d] = pos[t][0][d] + image[t][0][d]*edges[d]
+
+    return upos
 
 if __name__ == '__main__':
     main()

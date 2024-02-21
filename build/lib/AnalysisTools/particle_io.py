@@ -17,6 +17,7 @@ def load_traj(myfile):
 
     pos = np.array(traj['/particles/all/position/value'])
     vel = np.array(traj['/particles/all/velocity/value'])
+    image = np.array(traj['/particles/all/image/value'])
     times = np.array(traj['/particles/all/position/time'])
     edges = np.array(traj['/particles/all/box/edges'])
     dim = traj['/particles/all/box'].attrs['dimension']
@@ -40,6 +41,7 @@ def load_traj(myfile):
 
     traj_dict['pos'] = pos
     traj_dict['vel'] = vel
+    traj_dict['image'] = image
     traj_dict['times'] = times
     traj_dict['edges'] = edges
     traj_dict['N'] = N
