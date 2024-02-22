@@ -35,18 +35,30 @@ def main():
         filename = 'traj.h5'
         dataset = args.quantity
 
-    data = get_trajectory_data(basefolder, filename, dataset=dataset, subfolder=subfolder, max_num_traj=int(args.max_num_traj))
-    if args.stats_type=='average':
-        mystats = get_trajectory_stats(data)
-        np.savez(basefolder + '/' + args.quantity + '_avg.npz', **mystats)
-    elif args.stats_type=='histogram':
-        myhisto = get_trajectory_histogram(data, args.quantity)
-        np.savez(basefolder + '/' + args.quantity + '_histo.npz', **myhisto)
+    #Full trajectories are too big to load all at once -- deal with them separately
+    if args.traj_type=='postprocessed':
+        data = get_trajectory_data(basefolder, filename, dataset=dataset, subfolder=subfolder, max_num_traj=int(args.max_num_traj))
+        if args.stats_type=='average':
+            mystats = get_postprocessed_stats(data)
+            np.savez(basefolder + '/' + args.quantity + '_avg.npz', **mystats)
+        elif args.stats_type=='histogram':
+            myhisto = get_postprocessed_histogram(data, args.quantity)
+            np.savez(basefolder + '/' + args.quantity + '_histo.npz', **myhisto)
+    
+    else:
+        if args.stats_type=='average':
+            mystats = get_trajectory_stats(basefolder, filename, dataset=dataset, subfolder=subfolder)
+            np.savez(basefolder + '/' + args.quantity + '_avg.npz', **mystats)
+        elif args.stats_type=='histogram':
+            myhisto = get_trajectory_histogram(basefolder, filename, dataset=dataset, subfolder=subfolder)
+            np.savez(basefolder + '/' + args.quantity + '_histo.npz', **myhisto)
 
 def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', max_num_traj=1000):
 
     """
     Retrieve data for different random seeds.
+    WARNING: if trajectories are large then this may require
+    a very large amount of memory.
 
     INPUT: Name of folder containing subfolders named "seed=*"
            Name of data file (npz or h5md format)
@@ -91,10 +103,10 @@ def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', ma
     
     return data_list
 
-def get_trajectory_avg(data_list):
+def get_postprocessed_avg(data_list):
 
     """
-    Compute average of data over trajectories
+    Compute average of data over postprocessed trajectories
 
     INPUT: List of dictionaries containing data for each trajectory
     OUTPUT: Dictionary containing trajectory-averaged data
@@ -113,16 +125,16 @@ def get_trajectory_avg(data_list):
 
     return avg
 
-def get_trajectory_stderr(data_list):
+def get_postprocessed_stderr(data_list):
 
     """
-    Compute standard error of data over trajectories
+    Compute standard error of data over postprocessed trajectories
 
     INPUT: List of dictionaries containing data for each trajectory
     OUTPUT: Dictionary containing standard error of data
     """
 
-    avg = get_trajectory_avg(data_list)
+    avg = get_postprocessed_avg(data_list)
     keys = avg.keys()
     stderr = dict.fromkeys(keys)
 
@@ -141,17 +153,17 @@ def get_trajectory_stderr(data_list):
 
     return stderr
 
-def get_trajectory_stats(data_list):
+def get_postprocessed_stats(data_list):
 
     """
-    Compute average and standard error of data over trajectories
+    Compute average and standard error of data over postprocessed trajectories
 
     INPUT: List of dictionaries containing data for each trajectory
     OUTPUT: Dictionary containing average and standard error of data
     """
 
-    avg = get_trajectory_avg(data_list)
-    stderr = get_trajectory_stderr(data_list)
+    avg = get_postprocessed_avg(data_list)
+    stderr = get_postprocessed_stderr(data_list)
     keys = avg.keys()
     stats = {}
     for key in keys:
@@ -161,10 +173,10 @@ def get_trajectory_stats(data_list):
 
     return stats
 
-def get_trajectory_histogram(data_list, dataset):
+def get_postprocessed_histogram(data_list, dataset):
 
     """
-    Compute histogram of data over trajectories
+    Compute histogram of data over postprocessed trajectories
 
     INPUT: List of dictionaries containing data for each trajectory
     OUTPUT: Dictionary containing histogram w/ data from all trajectories
@@ -176,6 +188,190 @@ def get_trajectory_histogram(data_list, dataset):
     myhisto = hist_tools.get_histogram(all_data,nskip=0,nchunks=1)
 
     return myhisto
+
+##################
+#Functions dealing with statistics of full trajectories
+##################
+
+def get_trajectory_stats(basefolder, filename, dataset=None, subfolder='prod'):
+
+    """
+    Compute average and standard error of data over trajectories
+
+    INPUT: Name of folder containing subfolders named "seed=*"
+           Name of data file (hdf5 format)
+           Name of dataset
+           Name of subfolder within each "seed=*" folder to look in
+    OUTPUT: Dictionary containing average and standard error of data
+    """
+
+    #Check that basefolder contains "seed=*"
+    dirs = [d for d in os.listdir(basefolder) if os.path.isdir(os.path.join(basefolder, d)) and 'seed=' in d]
+    if len(dirs)==0:
+        raise Exception('Error: base folder does not contain seed subdirectories! Exiting.')
+    
+    if dataset==None:
+        raise Exception('Error: need to specify dataset to retrieve from h5 file. Exiting.')
+
+    if not filename.endswith('.h5'):
+        raise Exception('Error: file must be in hdf5 format. Exiting.')
+    
+    #First compute mean
+    ntraj = 0
+    avg = 0.0
+    for d in dirs:
+        dir = os.path.join(basefolder, d)
+        try:
+            if subfolder=='':
+                thefile = dir + '/' + filename
+            else:
+                thefile = dir + '/' + subfolder + '/' + filename
+            if filename=='noise_traj.h5':
+                traj = io.load_noise_traj(thefile)
+                data = traj[dataset]
+                avg += np.mean(data)
+                ntraj += 1
+            else:
+                traj = io.load_traj(thefile)
+                data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
+                avg += np.mean(data)
+                ntraj += 1
+        except FileNotFoundError:
+            print('Warning: trajectory data file not found. Skipping...')
+    avg = avg/ntraj
+    print('Computed mean.')
+
+    #Then compute stderr, kurtosis
+    q2 = 0.0 #variance
+    q4 = 0.0 #4th central moment
+    for d in dirs:
+        print(d)
+        dir = os.path.join(basefolder, d)
+        try:
+            if subfolder=='':
+                thefile = dir + '/' + filename
+            else:
+                thefile = dir + '/' + subfolder + '/' + filename
+            if filename=='noise_traj.h5':
+                traj = io.load_noise_traj(thefile)
+                data = traj[dataset]
+                q2 += np.mean((data-avg)**2)
+                q4 += np.mean((data-avg)**4)
+            else:
+                traj = io.load_traj(thefile)
+                data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
+                q2 += np.mean((data-avg)**2)
+                q4 += np.mean((data-avg)**4)
+        except FileNotFoundError:
+            print('Warning: trajectory data file not found. Skipping...')
+    q2 = q2/ntraj
+    q4 = q4/ntraj
+    stderr = np.sqrt(q2/ntraj)
+    kurtosis = q4/q2**2
+
+    stats = {}
+    stats['avg'] = avg
+    stats['stderr'] = stderr
+    stats['variance'] = q2
+    stats['kurtosis'] = kurtosis
+    stats['nsample'] = ntraj
+
+    for key in stats.keys():
+        print(key, stats[key])
+
+    return stats
+
+def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod', nbins=50):
+
+    """
+    Compute histogram of data over trajectories
+
+    INPUT: Name of folder containing subfolders named "seed=*"
+           Name of data file (hdf5 format)
+           Optional: Name of dataset
+           Optional: Name of subfolder within each "seed=*" folder to look in
+           Optional: Number of bins
+    OUTPUT: Dictionary containing histogram of data
+    """
+
+    #Check that basefolder contains "seed=*"
+    dirs = [d for d in os.listdir(basefolder) if os.path.isdir(os.path.join(basefolder, d)) and 'seed=' in d]
+    if len(dirs)==0:
+        raise Exception('Error: base folder does not contain seed subdirectories! Exiting.')
+    
+    if dataset==None:
+        raise Exception('Error: need to specify dataset to retrieve from h5 file. Exiting.')
+
+    if not filename.endswith('.h5'):
+        raise Exception('Error: file must be in hdf5 format. Exiting.')
+    
+    #First compute upper and lower histogram limits
+    llim = 0.0
+    ulim = 0.0
+    for d in dirs:
+        dir = os.path.join(basefolder, d)
+        try:
+            if subfolder=='':
+                thefile = dir + '/' + filename
+            else:
+                thefile = dir + '/' + subfolder + '/' + filename
+            if filename=='noise_traj.h5':
+                traj = io.load_noise_traj(thefile)
+                data = traj[dataset]
+            else:
+                traj = io.load_traj(thefile)
+                data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
+            min_curr = np.min(data)
+            if min_curr < llim:
+                llim = min_curr
+            max_curr = np.max(data)
+            if max_curr > ulim:
+                ulim = max_curr
+        except FileNotFoundError:
+            print('Warning: trajectory data file not found. Skipping...')
+    print('Computed histogram bounds.')
+
+    my_bin_edges = np.linspace(llim,ulim,num=nbins+1)
+    all_counts = np.zeros(nbins)
+    print(all_counts.shape)
+    total_num = 0
+
+    #Then compute histogram
+    for d in dirs:
+        print(d)
+        dir = os.path.join(basefolder, d)
+        try:
+            if subfolder=='':
+                thefile = dir + '/' + filename
+            else:
+                thefile = dir + '/' + subfolder + '/' + filename
+            if filename=='noise_traj.h5':
+                traj = io.load_noise_traj(thefile)
+                data = traj[dataset]
+            else:
+                traj = io.load_traj(thefile)
+                data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
+            
+            #Compute histogram
+            counts, bin_edges = np.histogram(data, bins=my_bin_edges, density=False)
+            print(counts.shape)
+            all_counts += counts
+            total_num += data.size
+
+        except FileNotFoundError:
+            print('Warning: trajectory data file not found. Skipping...')
+
+        bins = (bin_edges[:-1]+bin_edges[1:])/2
+        hist = all_counts/(1.0*total_num)
+            
+    the_dict = {}
+    the_dict['bins'] = bins
+    the_dict['hist'] = hist
+
+    print(bins)
+    print(hist)
+
+    return the_dict
 
 if __name__ == '__main__':
     main()
