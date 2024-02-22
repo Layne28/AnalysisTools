@@ -37,6 +37,7 @@ def main():
 
     #Full trajectories are too big to load all at once -- deal with them separately
     if args.traj_type=='postprocessed':
+        print('reading postprocessed data...')
         data = get_trajectory_data(basefolder, filename, dataset=dataset, subfolder=subfolder, max_num_traj=int(args.max_num_traj))
         if args.stats_type=='average':
             mystats = get_postprocessed_stats(data)
@@ -47,6 +48,7 @@ def main():
     
     else:
         if args.stats_type=='average':
+            print('getting statistics...')
             mystats = get_trajectory_stats(basefolder, filename, dataset=dataset, subfolder=subfolder)
             np.savez(basefolder + '/' + args.quantity + '_avg.npz', **mystats)
         elif args.stats_type=='histogram':
@@ -228,14 +230,15 @@ def get_trajectory_stats(basefolder, filename, dataset=None, subfolder='prod'):
                 thefile = dir + '/' + subfolder + '/' + filename
             if filename=='noise_traj.h5':
                 traj = io.load_noise_traj(thefile)
-                data = traj[dataset]
-                avg += np.mean(data)
+                avg += np.mean(traj[dataset])
                 ntraj += 1
             else:
                 traj = io.load_traj(thefile)
                 data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
                 avg += np.mean(data)
                 ntraj += 1
+
+            traj.clear() #clear memory
         except FileNotFoundError:
             print('Warning: trajectory data file not found. Skipping...')
     avg = avg/ntraj
@@ -254,14 +257,16 @@ def get_trajectory_stats(basefolder, filename, dataset=None, subfolder='prod'):
                 thefile = dir + '/' + subfolder + '/' + filename
             if filename=='noise_traj.h5':
                 traj = io.load_noise_traj(thefile)
-                data = traj[dataset]
-                q2 += np.mean((data-avg)**2)
-                q4 += np.mean((data-avg)**4)
+                q2 += np.mean((traj[dataset]-avg)**2)
+                q4 += np.mean(((traj[dataset]-avg)**2)**2) #have to compute fourth power this funny way to avoid oom error
+                print(q2, q4)
             else:
                 traj = io.load_traj(thefile)
                 data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
                 q2 += np.mean((data-avg)**2)
-                q4 += np.mean((data-avg)**4)
+                q4 += np.mean(((data-avg)**2)**2)
+
+            traj.clear() #clear memory
         except FileNotFoundError:
             print('Warning: trajectory data file not found. Skipping...')
     q2 = q2/ntraj
@@ -317,16 +322,21 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
                 thefile = dir + '/' + subfolder + '/' + filename
             if filename=='noise_traj.h5':
                 traj = io.load_noise_traj(thefile)
-                data = traj[dataset]
             else:
                 traj = io.load_traj(thefile)
                 data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
-            min_curr = np.min(data)
+            if filename=='noise_traj.h5':
+                min_curr = np.min(traj[dataset])
+                max_curr = np.max(traj[dataset])
+            else:
+                min_curr = np.min(data)
+                max_curr = np.max(data)
             if min_curr < llim:
                 llim = min_curr
-            max_curr = np.max(data)
             if max_curr > ulim:
                 ulim = max_curr
+
+            traj.clear() #clear memory
         except FileNotFoundError:
             print('Warning: trajectory data file not found. Skipping...')
     print('Computed histogram bounds.')
@@ -347,17 +357,21 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
                 thefile = dir + '/' + subfolder + '/' + filename
             if filename=='noise_traj.h5':
                 traj = io.load_noise_traj(thefile)
-                data = traj[dataset]
             else:
                 traj = io.load_traj(thefile)
                 data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
             
             #Compute histogram
-            counts, bin_edges = np.histogram(data, bins=my_bin_edges, density=False)
+            if filename=='noise_traj.h5':
+                counts, bin_edges = np.histogram(traj[dataset], bins=my_bin_edges)
+                total_num += traj[dataset].size
+            else:
+                counts, bin_edges = np.histogram(data, bins=my_bin_edges, density=False)
+                total_num += data.size
             print(counts.shape)
             all_counts += counts
-            total_num += data.size
-
+            
+            traj.clear() #clear memory
         except FileNotFoundError:
             print('Warning: trajectory data file not found. Skipping...')
 
