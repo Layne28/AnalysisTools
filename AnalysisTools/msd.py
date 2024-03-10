@@ -13,14 +13,27 @@ def main():
     ### Load data ####
     myfile = sys.argv[1] #Expects .h5 input file
     traj = particle_io.load_traj(myfile) #Extract data
+    nchunks = int(sys.argv[2])
     tmax = 100.0
-    if len(sys.argv)>2:
-        tmax = float(sys.argv[2])
+    if len(sys.argv)>3:
+        tmax = float(sys.argv[3])
+
+    #Split trajectory into chunks
+    msd_dict = {}
+    msd_dict['nchunks'] = nchunks
+    seglen = traj['pos'].shape[0]//nchunks
+    for n in range(nchunks):
+        pos = traj['pos'][(n*seglen):((n+1)*seglen),:,:]
+        image = traj['image'][(n*seglen):((n+1)*seglen),:,:]
+        times = traj['times'][(n*seglen):((n+1)*seglen)]
+        msd = get_msd(pos,image,traj['edges'],times, tmax)
+        msd_dict['msd_%d' % n] = msd[:,1]
+        msd_dict['times'] = msd[:,0]
     msd = get_msd(traj['pos'],traj['image'],traj['edges'],traj['times'], tmax)
 
     #### Output MSD to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/msd.npz'
-    np.savez(outfile, times=msd[:,0], msd=msd[:,1])
+    np.savez(outfile, **msd)
 
 @numba.jit(nopython=True)
 def get_msd(pos, image, edges, times, tmax=5.0):

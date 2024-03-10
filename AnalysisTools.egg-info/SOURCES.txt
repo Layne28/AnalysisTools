@@ -4,6 +4,8 @@ AnalysisTools/__init__.py
 AnalysisTools/cell_list.py
 AnalysisTools/cluster.py
 AnalysisTools/correlation.py
+AnalysisTools/energy.py
+AnalysisTools/field_analysis.py
 AnalysisTools/histogram.py
 AnalysisTools/measurement_tools.py
 AnalysisTools/msd.py

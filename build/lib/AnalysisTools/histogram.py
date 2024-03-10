@@ -13,13 +13,15 @@ def main():
     myfile = sys.argv[1] #Expects .h5 input file
     traj = particle_io.load_traj(myfile) #Extract data
     quantity = sys.argv[2]
+    nchunks = int(sys.argv[3])
+
     if quantity=='vel' or quantity=='velocity':
         vel = traj['vel']
-        vx_hist = get_histogram(vel[:,:,0], nskip=0, nchunks=1)
+        vx_hist = get_histogram(vel[:,:,0], nskip=0, nchunks=nchunks)
         if traj['dim']==2 or traj['dim']==3:
-            vy_hist = get_histogram(vel[:,:,1], nskip=0, nchunks=1)
+            vy_hist = get_histogram(vel[:,:,1], nskip=0, nchunks=nchunks)
         if traj['dim']==3:
-            vz_hist = get_histogram(vel[:,:,2], nskip=0, nchunks=1)
+            vz_hist = get_histogram(vel[:,:,2], nskip=0, nchunks=nchunks)
         speed_hist = get_histogram(np.linalg.norm(vel, axis=2), nskip=0, nchunks=1)
 
         #### Output velocity histograms to file in same directory as input h5 file ####        

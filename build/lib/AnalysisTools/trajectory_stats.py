@@ -9,16 +9,19 @@ import argparse
 import AnalysisTools.particle_io as io
 import AnalysisTools.measurement_tools as tools
 import AnalysisTools.histogram as hist_tools
+import AnalysisTools.cluster as cluster
 
 def main():
 
-    parser = argparse.ArgumentParser(description='Compute statistics over trajectories (either avg+stderr OR histogram).')
+    parser = argparse.ArgumentParser(description='Compute statistics over trajectories (either avg+stderr OR histogram OR CSD).')
     parser.add_argument('base_folder', help='Directory within which to look for trajectories w/ different seeds.')
     parser.add_argument('quantity', help='e.g. velocity, msd, ...')
-    parser.add_argument('stats_type', help='"average" or "histogram"')
+    parser.add_argument('stats_type', help='"average" or "histogram" or "csd"')
     parser.add_argument('traj_type', help='"particle" or "noise" or postprocessed. If "postprocessed," will look for "quantity.npz"; else will look for "quantity" dataset in trajectory file')
     parser.add_argument('--subfolder', default='prod', help='Within each seed folder, look in this subfolder.')
     parser.add_argument('--max_num_traj', default=1000, help='Max number of trajectories to load and analyze.')
+    parser.add_argument('--nchunks', default=5, help='Number of chunks to divide trajectories into (if applicable).')
+    parser.add_argument('--rc', default=1.1, help='Cluster size cutoff, only needed if stats_type=csd.')
 
     args = parser.parse_args()
 
@@ -27,7 +30,10 @@ def main():
     subfolder = args.subfolder
     dataset=None
     if args.traj_type=='postprocessed':
-        filename = args.quantity + '.npz'
+        if args.quantity=='csd':
+            filename = args.quantity + '_rc=%f.npz' % args.rc
+        else:
+            filename = args.quantity + '.npz'
     elif args.traj_type=='noise':
         filename = 'noise_traj.h5'
         dataset = args.quantity
@@ -45,6 +51,9 @@ def main():
         elif args.stats_type=='histogram':
             myhisto = get_postprocessed_histogram(data, args.quantity)
             np.savez(basefolder + '/' + args.quantity + '_histo.npz', **myhisto)
+        elif args.stats_type=='csd':
+            mycsd = get_postprocessed_csd(data, rc=args.rc)
+            np.savez(basefolder + 'csd_rc=%f.npz', **mycsd)
     
     else:
         if args.stats_type=='average':
@@ -69,7 +78,7 @@ def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', ma
     OUTPUT: List of dictionaries containing data for each trajectory.
     """
 
-    #Check that basefolder contains "seed=*"
+    #Check that basefolder contains "se∆ed=*"
     dirs = [d for d in os.listdir(basefolder) if os.path.isdir(os.path.join(basefolder, d)) and 'seed=' in d]
     dirs = dirs[:max_num_traj]
     if len(dirs)==0:
@@ -286,7 +295,7 @@ def get_trajectory_stats(basefolder, filename, dataset=None, subfolder='prod'):
 
     return stats
 
-def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod', nbins=50):
+def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod', nbins=50, nchunks=5):
 
     """
     Compute histogram of data over trajectories
@@ -384,6 +393,32 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
 
     print(bins)
     print(hist)
+
+    return the_dict
+
+def get_postprocessed_csd(data_list):
+
+    """
+    Compute CSD over trajectories
+
+    INPUT: List of dictionaries containing csd data for each trajectory
+    OUTPUT: Dictionary containing CSD for different chunks over all trajectories
+    """
+
+    nchunks = data_list[0]['nchunks']
+    the_dict = {}
+    the_dict['bins'] = data_list[0]['bins_0']
+    the_dict['nchunks'] = nchunks
+    for n in nchunks:
+        for t in len(data_list):
+            hist = data_list[t]['hist_%d' % n]
+            
+            if the_dict['hist_%d' % n] is None:
+                the_dict['hist_%d' % n] = hist
+            else:
+                the_dict['hist_%d' % n] += hist
+        #normalize counts to probability
+        the_dict['hist_%d' % n] = the_dict['hist_%d' % n]/np.sum(the_dict['hist_%d' % n])
 
     return the_dict
 

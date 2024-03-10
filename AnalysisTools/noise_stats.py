@@ -15,6 +15,7 @@ def main():
     traj = particle_io.load_noise_traj(myfile) #Extract data
     
     rms_noise = tools.get_rms_noise(traj['noise'])
+    print('rms noise:', rms_noise)
 
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/noise_stats.npz'
     np.savez(outfile, rms=rms_noise)

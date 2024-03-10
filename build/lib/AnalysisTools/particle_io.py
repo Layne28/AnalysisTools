@@ -17,6 +17,9 @@ def load_traj(myfile):
 
     pos = np.array(traj['/particles/all/position/value'])
     vel = np.array(traj['/particles/all/velocity/value'])
+    potential_energy = np.array(traj['/observables/potential_energy/value'])
+    active_force = np.array(traj['/particles/all/active_force/value'])
+    conservative_force = np.array(traj['/particles/all/conservative_force/value'])
     image = np.array(traj['/particles/all/image/value'])
     times = np.array(traj['/particles/all/position/time'])
     edges = np.array(traj['/particles/all/box/edges'])
@@ -41,6 +44,9 @@ def load_traj(myfile):
 
     traj_dict['pos'] = pos
     traj_dict['vel'] = vel
+    traj_dict['active_force'] = active_force
+    traj_dict['conservative_force'] = conservative_force
+    traj_dict['potential_energy'] = potential_energy
     traj_dict['image'] = image
     traj_dict['times'] = times
     traj_dict['edges'] = edges

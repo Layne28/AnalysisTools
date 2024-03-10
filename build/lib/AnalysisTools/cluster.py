@@ -13,15 +13,42 @@ import numba
 #from numba import gdb_init
 import math
 import faulthandler
+import argparse
 import AnalysisTools.measurement_tools as tools
 import AnalysisTools.particle_io as io
 import AnalysisTools.cell_list as cl
+import AnalysisTools.histogram as histo
+
+def main():
+
+    parser = argparse.ArgumentParser(description='Cluster particles in trajectory and compute CSD.')
+    parser.add_argument('file', help='Trajectory file (h5md format).')
+    parser.add_argument('--rc', default=1.1, help='Cutoff distance for defining cluster.')
+    parser.add_argument('--nchunks', default=5, help='Divide trajectory into this many chunks.')
+
+    args = parser.parse_args()
+    myfile = args.file
+    rc = args.rc
+    nchunks = args.nchunks
+
+    ### Load data ####
+    traj = io.load_traj(myfile) #Extract data
+
+    out_folder = '/'.join((myfile.split('/'))[:-1])
+
+    #Do clustering
+    cluster_traj(traj,out_folder,rc)
+
+    #Get CSD
+    csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0, rc=rc)
+
+    np.savez(out_folder + '/csd_rc=%f.npz' % rc, **csd)
 
 ##################
 #Get Cluster Size Distribution (CSD) from cluster-labeled trajectory
 ##################
 
-def get_csd(cluster_traj_name, nchunks=10, nskip=0):
+def get_csd(cluster_traj_name, nchunks=5, nskip=0):
 
     #Read in data
     clusters = h5py.File(cluster_traj_name, 'r')
@@ -59,15 +86,15 @@ def get_csd(cluster_traj_name, nchunks=10, nskip=0):
     else:
         the_dict['nchunks'] = 1
         cluster_chunk = np.concatenate(cluster_sizes).ravel()
-        hist, bin_edges = np.histogram(cluster_chunk, np.arange(0,N+2,1)-0.5, density=True)
+        hist, bin_edges = np.histogram(cluster_chunk, np.arange(0,N+2,1)-0.5, density=False)
         bins = (bin_edges[:-1]+bin_edges[1:])/2
 
         the_dict['bins_0'] = bins
         the_dict['hist_0'] = hist
 
-    the_dict['avg_hist'] = tools.get_hist_avg(the_dict, nskip=nskip)
+    the_dict['avg_hist'] = histo.get_hist_avg(the_dict, nskip=nskip)
     the_dict['bins'] = bins
-    the_dict['stddev_hist'] = tools.get_hist_stddev(the_dict, nskip=nskip)
+    the_dict['stddev_hist'] = histo.get_hist_stddev(the_dict, nskip=nskip)
     the_dict['nskipped'] = nskip
 
     return the_dict
@@ -124,13 +151,13 @@ def cluster_traj(traj,out_folder,rc):
     cluster_file.close()
 
     #Get histograms
-    cluster_size_hist, size_bin_edges = np.histogram(cluster_sizes, np.arange(0,traj['N']+2,1)-0.5, density=True)
-    size_bins = (size_bin_edges[:-1]+size_bin_edges[1:])/2
+    #cluster_size_hist, size_bin_edges = np.histogram(cluster_sizes, np.arange(0,traj['N']+2,1)-0.5, density=True)
+    #size_bins = (size_bin_edges[:-1]+size_bin_edges[1:])/2
 
-    num_hist, num_bin_edges = np.histogram(num_clusters, np.arange(0,traj['N']+2,1)-0.5, density=True)
+    #num_hist, num_bin_edges = np.histogram(num_clusters, np.arange(0,traj['N']+2,1)-0.5, density=True)
 
     #Write data
-    np.savetxt(out_folder + '/cluster_hist_rc=%f.txt' % rc, np.c_[size_bins,cluster_size_hist,num_hist], header='bin size num')
+    #np.savetxt(out_folder + '/cluster_hist_rc=%f.txt' % rc, np.c_[size_bins,cluster_size_hist,num_hist], header='bin size num')
 
 ##################
 #Cluster functions
@@ -208,3 +235,6 @@ def sort_clusters(cluster_id_arr):
         exit()
 
     return cluster_id_sorted
+
+if __name__ == '__main__':
+    main()
