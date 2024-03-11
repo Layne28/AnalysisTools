@@ -36,11 +36,12 @@ def main():
 
     out_folder = '/'.join((myfile.split('/'))[:-1])
 
-    #Do clustering
-    cluster_traj(traj,out_folder,rc)
+    #Do clustering if files don't already exist
+    if not(os.path.isfile(out_folder + '/clusters_rc=%f.h5' % rc)):
+        cluster_traj(traj,out_folder,rc)
 
     #Get CSD
-    csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0, rc=rc)
+    csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0)
 
     np.savez(out_folder + '/csd_rc=%f.npz' % rc, **csd)
 
@@ -126,8 +127,8 @@ def cluster_traj(traj,out_folder,rc):
     cluster_file = h5py.File(out_folder + '/clusters_rc=%f.h5' % rc, 'w')
 
     for t in range(traj_length):
-        if t%10==0:
-            print('frame ', t)
+        #if t%1000==0:
+        #    print('frame ', t)
 
         #Create cell list for locating pairs of particles
         head, cell_list, cell_index = cl.create_cell_list(traj['pos'][t,:,:], traj['edges'], ncell_arr, cellsize_arr, traj['dim'])

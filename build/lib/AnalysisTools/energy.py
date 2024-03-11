@@ -21,7 +21,7 @@ def main():
 
     #### Output average energies and forces to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/energies_and_forces.npz'
-    np.savez(outfile, potential_energy=pe, kinetic_energy=ke, net_active_force=net_active_force, net_conservative_force=net_conservative_force)
+    np.savez(outfile, times=traj['times'], potential_energy=pe, kinetic_energy=ke, net_active_force=net_active_force, net_conservative_force=net_conservative_force)
 
 @numba.jit(nopython=True)
 def get_kinetic_energy(vel):
@@ -56,6 +56,8 @@ def get_net_force(forces):
         for i in range(forces.shape[1]):
             for mu in range(forces.shape[2]):
                 net_force[t,mu] += forces[t,i,mu]
+    
+    return net_force
 
 if __name__ == '__main__':
     main()

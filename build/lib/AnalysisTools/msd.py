@@ -29,11 +29,10 @@ def main():
         msd = get_msd(pos,image,traj['edges'],times, tmax)
         msd_dict['msd_%d' % n] = msd[:,1]
         msd_dict['times'] = msd[:,0]
-    msd = get_msd(traj['pos'],traj['image'],traj['edges'],traj['times'], tmax)
 
     #### Output MSD to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/msd.npz'
-    np.savez(outfile, **msd)
+    np.savez(outfile, **msd_dict)
 
 @numba.jit(nopython=True)
 def get_msd(pos, image, edges, times, tmax=5.0):

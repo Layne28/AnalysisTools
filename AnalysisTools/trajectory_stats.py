@@ -52,7 +52,7 @@ def main():
             myhisto = get_postprocessed_histogram(data, args.quantity)
             np.savez(basefolder + '/' + args.quantity + '_histo.npz', **myhisto)
         elif args.stats_type=='csd':
-            mycsd = get_postprocessed_csd(data, rc=args.rc)
+            mycsd = get_postprocessed_csd(data)
             np.savez(basefolder + 'csd_rc=%f.npz', **mycsd)
     
     else:
@@ -99,7 +99,7 @@ def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', ma
             else:
                 thefile = dir + '/' + subfolder + '/' + filename
             if filename.endswith('.npz'):
-                data = np.load(thefile)
+                data = np.load(thefile, allow_pickle=True)
             elif filename=='noise_traj.h5':
                 traj = io.load_noise_traj(thefile)
                 data = {dataset: traj[dataset]}
@@ -132,7 +132,7 @@ def get_postprocessed_avg(data_list):
             else:
                 avg[key] += data[key]
     for key in data.keys():
-        avg[key] /= len(data_list)
+        avg[key] = avg[key]/len(data_list)
 
     return avg
 
@@ -409,8 +409,8 @@ def get_postprocessed_csd(data_list):
     the_dict = {}
     the_dict['bins'] = data_list[0]['bins_0']
     the_dict['nchunks'] = nchunks
-    for n in nchunks:
-        for t in len(data_list):
+    for n in range(nchunks):
+        for t in range(len(data_list)):
             hist = data_list[t]['hist_%d' % n]
             
             if the_dict['hist_%d' % n] is None:

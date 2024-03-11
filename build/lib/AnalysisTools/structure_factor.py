@@ -30,13 +30,23 @@ def main():
 
     #Compute S(q)
     print('Computing S(q)...')
-    sq = get_sq(traj, nchunks=nchunks)
+    sq = get_sq(traj, nchunks=nchunks, qmax=15)
     print('Computed S(q).')
 
     #### Output S(q) to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq.npz'
     print(outfile)
     np.savez(outfile, **sq)
+
+    # Compute S(q)(t)
+    '''
+    print('Computing S(q) trajectory...')
+    sq_traj = get_sq_traj(traj)
+    print('Computed S(q) traj.')
+    #### Output S(q) traj to file in same directory as input h5 file #### 
+    outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq_traj.npz'
+    np.savez(outfile, **sq_traj)
+    '''
 
 #### Methods ####
 
@@ -82,6 +92,85 @@ def get_allowed_q(qmax, dq, dim):
 
     return qlist[:cnt,:]
 
+def get_sqt(traj, nchunks=5, spacing=0.0, qmax=2*np.pi, tmax=100.0):
+
+    #TODO: finish implementing this
+
+    """
+    Compute dynamic structure factor.
+
+    INPUT: Particle trajectory (dictionary),
+           number of chunks to divide trajectory into,
+           spacing in q space,
+           max q value,
+           max time value
+    OUTPUT: Dictionary containing S(q,t) for each chunk
+    """
+
+    the_dict = {}
+    the_dict['nchunks'] = nchunks
+    seglen = traj['pos'].shape[0]//nchunks
+
+    #### Chunk positions ####
+    pos_chunks = []
+    for n in range(nchunks):
+        pos_chunks.append(traj['pos'][(n*seglen):((n+1)*seglen),:,:])
+
+    #### Compute allowed wavevectors ####
+    dim=traj['dim']
+    if spacing==0.0:
+        spacing = 2*np.pi/(np.max(traj['edges'])) #spacing
+        
+    qvals = get_allowed_q(qmax, spacing, dim)
+
+    #### Compute S(q) for each wavevector ####
+    for n in range(nchunks):
+        print('chunk', n)
+        q1d, sqavg, sqvals = get_sq_range(pos_chunks[n], traj['dim'], traj['edges'], qvals)
+        the_dict['sq_vals_%d' % n] = sqvals
+        the_dict['sq_vals_1d_%d' % n] = sqavg
+    the_dict['qvals'] = qvals
+    the_dict['qvals_1d'] = q1d
+    the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
+
+    return the_dict
+
+def get_sq_traj(traj, spacing=0.0, qmax=2*np.pi):
+
+    """
+    Compute instantaneous structure factor vs time.
+
+    INPUT: Particle trajectory (dictionary),
+           spacing in q space,
+           max q value,
+    OUTPUT: Dictionary containing S(q)(t)
+    """
+
+    the_dict = {}
+
+    #### Compute allowed wavevectors ####
+    dim=traj['dim']
+    if spacing==0.0:
+        spacing = 2*np.pi/(np.max(traj['edges'])) #spacing
+        
+    qvals = get_allowed_q(qmax, spacing, dim)
+
+    #### Compute S(q) for each wavevector and time ####
+    sqavg_list = []
+    sqvals_list = []
+    for t in range(traj['pos'].shape[0]):
+        post = traj['pos'][t,:,:]
+        q1d, sqavg, sqvals = get_sq_range(post[np.newaxis,:,:], traj['dim'], traj['edges'], qvals)
+        sqavg_list.append(sqavg)
+        sqvals_list.append(sqvals)
+    the_dict['sq_vals'] = np.array(sqvals_list)
+    the_dict['sq_vals_1d'] = np.array(sqavg_list)
+    the_dict['qvals'] = qvals
+    the_dict['qvals_1d'] = q1d
+    the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
+
+    return the_dict
+
 def get_sq(traj, nchunks=5, spacing=0.0, qmax=2*np.pi):
 
     """
@@ -100,13 +189,14 @@ def get_sq(traj, nchunks=5, spacing=0.0, qmax=2*np.pi):
 
     #### Chunk positions ####
     pos_chunks = []
+    print(traj['pos'].shape)
     for n in range(nchunks):
         pos_chunks.append(traj['pos'][(n*seglen):((n+1)*seglen),:,:])
 
     #### Compute allowed wavevectors ####
     dim=traj['dim']
     if spacing==0.0:
-        spacing = np.pi/(1*np.max(traj['edges'])) #spacing
+        spacing = 2*np.pi/(np.max(traj['edges'])) #spacing
         
     qvals = get_allowed_q(qmax, spacing, dim)
 
@@ -127,21 +217,21 @@ def get_sq_range(pos, dim, edges, qvals):
 
     sqvals = np.zeros(qvals.shape[0],dtype=numba.complex128)
     for i in range(qvals.shape[0]):
-        #print(qvals[i,:])
+        print(qvals[i,:])
         sqvals[i] = get_single_point_sq(pos, dim, edges, qvals[i,:])
 
     #Get "isotropic" S(q) by histogramming
-    nbins=30
+    nbins=50
     q1d = np.linspace(0,np.max(qvals),num=nbins+1)
     counts = np.zeros(nbins,dtype=numba.float64)
-    sqavg = np.zeros(nbins, dtype=numba.complex128)
+    sqavg = np.zeros(nbins, dtype=numba.float64)
     for i in range(qvals.shape[0]):
         mag = np.linalg.norm(qvals[i])
         index = int(np.floor(mag/q1d[-1]*nbins))
         if index==nbins:
             index = nbins-1
         counts[index] += 1.0
-        sqavg[index] += sqvals[index]
+        sqavg[index] += sqvals[i]
     sqavg = np.divide(sqavg,counts)
 
     return q1d, sqavg, sqvals
@@ -149,15 +239,25 @@ def get_sq_range(pos, dim, edges, qvals):
 @numba.jit(nopython=True)
 def get_single_point_sq(pos, dim, edges, q):
 
-    sq = 0. + 0.j
+    sq = 0
     N = pos.shape[1]
     traj_len = pos.shape[0]
+    print('q:', q)
     for t in range(traj_len):
-        rho = 0. + 0.j
+        #rho = 0. + 0.j
+        rho_real = 0
+        rho_imag = 0
         for i in range(N):
-            rho += np.exp(-1j*np.dot(q, pos[t,i,:dim]))
-        sq += rho * np.conjugate(rho)
-    sq *= (1.0/(N*(traj_len)))
+            mypos = pos[t,i,:dim]
+            mypos[0] += edges[0]/2.0
+            mypos[1] += edges[1]/2.0
+            #rho_real += np.cos(np.dot(q,mypos))
+            #rho_imag += np.sin(np.dot(q,mypos))
+            rho_real += np.cos(q[0]*mypos[0]+q[1]*mypos[1])
+            rho_imag += np.sin(q[0]*mypos[0]+q[1]*mypos[1])
+            #rho += np.exp(-1j*np.dot(q, pos[t,i,:dim]))
+        sq += rho_real**2 + rho_imag**2
+    sq = sq*(1.0/(N*(traj_len)))
 
     return sq
 
