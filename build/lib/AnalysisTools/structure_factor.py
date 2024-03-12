@@ -215,9 +215,9 @@ def get_sq(traj, nchunks=5, spacing=0.0, qmax=2*np.pi):
 @numba.jit(nopython=True)
 def get_sq_range(pos, dim, edges, qvals):
 
-    sqvals = np.zeros(qvals.shape[0],dtype=numba.complex128)
+    sqvals = np.zeros(qvals.shape[0],dtype=numba.float64)
     for i in range(qvals.shape[0]):
-        print(qvals[i,:])
+        #print(qvals[i,:])
         sqvals[i] = get_single_point_sq(pos, dim, edges, qvals[i,:])
 
     #Get "isotropic" S(q) by histogramming
@@ -242,7 +242,7 @@ def get_single_point_sq(pos, dim, edges, q):
     sq = 0
     N = pos.shape[1]
     traj_len = pos.shape[0]
-    print('q:', q)
+    #print('q:', q)
     for t in range(traj_len):
         #rho = 0. + 0.j
         rho_real = 0
