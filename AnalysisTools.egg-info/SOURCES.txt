@@ -18,3 +18,9 @@ AnalysisTools.egg-info/PKG-INFO
 AnalysisTools.egg-info/SOURCES.txt
 AnalysisTools.egg-info/dependency_links.txt
 AnalysisTools.egg-info/top_level.txt
+tests/test_cluster.py
+tests/test_correlation.py
+tests/test_field_analysis.py
+tests/test_msd.py
+tests/test_structure_factor.py
+tests/test_trajectory_stats.py

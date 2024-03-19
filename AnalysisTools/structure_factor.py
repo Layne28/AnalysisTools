@@ -28,26 +28,26 @@ def main():
     nchunks = int(sys.argv[2])
     #eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
 
-    '''
+    
     #Compute S(q)
     print('Computing S(q)...')
-    sq = get_sq(traj, nchunks=nchunks, qmax=15)
+    sq = get_sq(traj, nchunks=nchunks, qmax=2)
     print('Computed S(q).')
 
     #### Output S(q) to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq.npz'
     print(outfile)
     np.savez(outfile, **sq)
-    '''
-    # Compute S(q)(t)
     
+    # Compute S(q)(t)
+    '''
     print('Computing S(q) trajectory...')
     sq_traj = get_sq_traj(traj, qmax=7.0)
     print('Computed S(q) traj.')
     #### Output S(q) traj to file in same directory as input h5 file #### 
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq_traj.npz'
     np.savez(outfile, **sq_traj)
-    
+    '''
 
 #### Methods ####
 

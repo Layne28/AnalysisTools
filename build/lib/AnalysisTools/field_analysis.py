@@ -13,17 +13,19 @@ def main():
     ### Load data ####
     myfile = sys.argv[1] #Expects .h5 input file
     traj = io.load_noise_traj(myfile) #Extract data
-    print(traj['noise'].shape)
+    print(traj['noise'].shape[:-1])
+    div = np.zeros(traj['noise'].shape[:-1])
+    vor = np.zeros(traj['noise'].shape[:-1])
     for t in range(traj['times'].shape[0]):
-        div = get_divergence(traj['dim'], traj['ncells'], traj['spacing'], traj['noise'][t,:,:,:])
+        div[t,:,:] = get_divergence(traj['dim'], traj['ncells'], traj['spacing'], traj['noise'][t,:,:,:])
         #print(div)
-        vor = get_curl(traj['dim'], traj['ncells'], traj['spacing'], traj['noise'][t,:,:,:])
+        vor[t,:,:] = get_curl(traj['dim'], traj['ncells'], traj['spacing'], traj['noise'][t,:,:,:])
     print(np.mean(np.abs(traj['noise'][0,:,:,:])))
     print(np.mean(np.abs(div)))
     print(np.median(np.abs(div)))
     print(np.max(div))
     print(np.min(div))
-    #### Output MSD to file in same directory as input h5 file ####        
+    #### Output field properties to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/field_properties.npz'
     np.savez(outfile, times=traj['times'], divergence=div, vorticity=vor)
 
@@ -111,6 +113,20 @@ def get_2d_curl(ncells, spacing, field):
     nx = field.shape[0]
     ny = field.shape[1]
     curl = np.zeros((nx,ny))
+
+    for i in range(ncells[0]):
+        for j in range(ncells[1]):
+            #Use central difference formula to compute derivatives
+            fyxp = field[(i+1)%ncells[0]][j][1]
+            fyxm = field[(i-1+ncells[0])%ncells[0]][j][1]
+            term1 = (fyxp-fyxm)/(2*spacing[0])
+
+            fxyp = field[i][(j+1)%ncells[1]][0]
+            fxym = field[i][(j-1+ncells[1])%ncells[1]][0]
+            term2 = (fxyp-fxym)/(2*spacing[1])
+
+            curl[i][j] = term1 - term2
+
     return curl
 
 @numba.jit(nopython=True)
