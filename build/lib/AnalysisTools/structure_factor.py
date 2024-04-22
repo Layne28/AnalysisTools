@@ -28,20 +28,21 @@ def main():
     nchunks = int(sys.argv[2])
     #eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
 
+    
     #Compute S(q)
     print('Computing S(q)...')
-    sq = get_sq(traj, nchunks=nchunks, qmax=15)
+    sq = get_sq(traj, nchunks=nchunks, qmax=2)
     print('Computed S(q).')
 
     #### Output S(q) to file in same directory as input h5 file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq.npz'
     print(outfile)
     np.savez(outfile, **sq)
-
+    
     # Compute S(q)(t)
     '''
     print('Computing S(q) trajectory...')
-    sq_traj = get_sq_traj(traj)
+    sq_traj = get_sq_traj(traj, qmax=7.0)
     print('Computed S(q) traj.')
     #### Output S(q) traj to file in same directory as input h5 file #### 
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq_traj.npz'
@@ -135,7 +136,7 @@ def get_sqt(traj, nchunks=5, spacing=0.0, qmax=2*np.pi, tmax=100.0):
 
     return the_dict
 
-def get_sq_traj(traj, spacing=0.0, qmax=2*np.pi):
+def get_sq_traj(traj, spacing=0.0, qmax=15.0):
 
     """
     Compute instantaneous structure factor vs time.
@@ -168,6 +169,7 @@ def get_sq_traj(traj, spacing=0.0, qmax=2*np.pi):
     the_dict['qvals'] = qvals
     the_dict['qvals_1d'] = q1d
     the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
+    the_dict['times'] = traj['times']
 
     return the_dict
 

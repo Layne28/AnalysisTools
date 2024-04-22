@@ -72,20 +72,36 @@ def load_traj(myfile):
         edges = traj[0].configuration.box[:3]
         dim = traj[0].configuration.dimensions
 
+        if traj[0].bonds.N>0:
+            has_topology = 1
+            bonds = []
+
         for n in range(nframes):
             frame = traj[n]
             pos.append(frame.particles.position)
-            potential_energy.append(np.sum(log['log/particles/md/pair/LJ/energies'][n,:]))
+            if 'log/particles/md/pair/LJ/energies' in log:
+                potential_energy.append(np.sum(log['log/particles/md/pair/LJ/energies'][n,:]))
+            else:
+                potential_energy.append(np.sum(log['log/particles/md/bond/Harmonic/energies'][n,:]))
             image.append(frame.particles.image)
+            if has_topology==1:
+                bonds.append(frame.bonds.group)
+
 
         pos = np.array(pos)
         potential_energy = np.array(potential_energy)
-        timesteps = np.array(timesteps)
+        #timesteps = np.array(timesteps)
         image = np.array(image)
-        conservative_force = log['log/particles/md/pair/LJ/forces']
+        if has_topology==1:
+            bonds = np.array(bonds)
+        if 'log/particles/md/pair/LJ/forces' in log:
+            conservative_force = log['log/particles/md/pair/LJ/forces']
+            virial = log['log/particles/md/pair/LJ/virials']
+        else:
+            conservative_force = log['log/particles/md/bond/Harmonic/forces']
+            virial = log['log/particles/md/bond/Harmonic/virials']
         active_force = log['log/particles/ActiveNoiseForce/ActiveNoiseForce/forces']
-        virial = log['log/particles/md/pair/LJ/virials']
-        times = log['log/Time/time/']
+        times = log['log/Time/time']
         vel = conservative_force + active_force #WARNING: assumes friction = 1!
         N = pos.shape[1]
 
