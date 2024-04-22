@@ -69,8 +69,6 @@ def load_traj(myfile):
         potential_energy = []
         image = []
         times = []
-        timesteps = []
-        dt = 2.5e-4 #need to figure out where this is stored in gsd file
         edges = traj[0].configuration.box[:3]
         dim = traj[0].configuration.dimensions
 
@@ -78,16 +76,15 @@ def load_traj(myfile):
             frame = traj[n]
             pos.append(frame.particles.position)
             potential_energy.append(np.sum(log['log/particles/md/pair/LJ/energies'][n,:]))
-            timesteps.append(frame.configuration.step)
             image.append(frame.particles.image)
 
         pos = np.array(pos)
         potential_energy = np.array(potential_energy)
-        timesteps = np.array(timesteps)
         image = np.array(image)
         conservative_force = log['log/particles/md/pair/LJ/forces']
         active_force = log['log/particles/ActiveNoiseForce/ActiveNoiseForce/forces']
         virial = log['log/particles/md/pair/LJ/virials']
+        times = log['log/Time/time']
         vel = conservative_force + active_force #WARNING: assumes friction = 1!
         N = pos.shape[1]
 
@@ -98,7 +95,7 @@ def load_traj(myfile):
         traj_dict['virial'] = virial
         traj_dict['potential_energy'] = potential_energy
         traj_dict['image'] = image
-        traj_dict['times'] = timesteps*dt
+        traj_dict['times'] = times
         traj_dict['edges'] = edges
         traj_dict['N'] = N
         traj_dict['dim'] = dim

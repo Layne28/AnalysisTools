@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 
 import AnalysisTools.particle_io as particle_io
 import AnalysisTools.measurement_tools as measurement_tools
+import AnalysisTools.trajectory_stats as stats
 
 def main():
 
@@ -27,11 +28,10 @@ def main():
     traj = particle_io.load_traj(myfile) #Extract data
     nchunks = int(sys.argv[2])
     #eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
-
-    
+ 
     #Compute S(q)
     print('Computing S(q)...')
-    sq = get_sq(traj, nchunks=nchunks, qmax=2)
+    sq = get_sq(traj, nchunks=nchunks, qmax=np.pi)
     print('Computed S(q).')
 
     #### Output S(q) to file in same directory as input h5 file ####        
@@ -40,16 +40,57 @@ def main():
     np.savez(outfile, **sq)
     
     # Compute S(q)(t)
-    '''
     print('Computing S(q) trajectory...')
-    sq_traj = get_sq_traj(traj, qmax=7.0)
+    sq_traj = get_sq_traj(traj, qmax=1.0)
     print('Computed S(q) traj.')
     #### Output S(q) traj to file in same directory as input h5 file #### 
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq_traj.npz'
     np.savez(outfile, **sq_traj)
-    '''
 
 #### Methods ####
+
+def rebin_sq(base_folder, nbins=-1, max_num_traj=100):
+
+    """Rebin S(q) to produce 1d with specified nbins"""
+
+    if nbins==-1:
+        #search base_folder path for system size
+        subdirs = base_folder.split('/')
+        substring = [item for item in subdirs if item.startswith('Lx=')][0]
+        substring = substring.split('_')[0]
+        L = float(substring.split('=')[-1])
+        nbins = int(2.0/(2*np.pi/L))
+        print(nbins)
+    
+    print('rebinning...')
+    data = stats.get_trajectory_data(base_folder, 'sq.npz', dataset='sq', subfolder='prod', max_num_traj=max_num_traj)
+    #print(data)
+    for d in data:
+        for n in range(d['nchunks']):
+            sq = d['sq_vals_%d' % n]
+            q = d['qvals']
+            counts = np.zeros(nbins)
+            sq_new = np.zeros(nbins)
+            qnorm = np.linalg.norm(q, axis=1)
+            q1d = np.linspace(0,np.max(qnorm),num=nbins+1)
+            for j in range(qnorm.shape[0]):
+                index = int(np.floor(qnorm[j]/np.max(qnorm)*nbins))
+                if index==nbins:
+                    index = nbins-1
+                counts[index] += 1.0
+                sq_new[index] += sq[j]
+            sq_new = np.divide(sq_new,counts)
+            q1d = q1d[1:-1]
+            sq_new = sq_new[1:]
+            q1d = (q1d)[~np.isnan(sq_new)]
+            sq_new = sq_new[~np.isnan(sq_new)]
+            d['sq_vals_1d_%d' % n] = sq_new
+            d['qvals_1d'] = q1d
+
+    return data
+
+    #mystats = stats.get_postprocessed_stats(data)
+    #np.savez(base_folder + '/sq_avg.npz', **mystats)
 
 @numba.jit(nopython=True)
 def get_allowed_q(qmax, dq, dim):
@@ -94,8 +135,6 @@ def get_allowed_q(qmax, dq, dim):
     return qlist[:cnt,:]
 
 def get_sqt(traj, nchunks=5, spacing=0.0, qmax=2*np.pi, tmax=100.0):
-
-    #TODO: finish implementing this
 
     """
     Compute dynamic structure factor.
@@ -173,7 +212,7 @@ def get_sq_traj(traj, spacing=0.0, qmax=15.0):
 
     return the_dict
 
-def get_sq(traj, nchunks=5, spacing=0.0, qmax=2*np.pi):
+def get_sq(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
 
     """
     Compute static structure factor.
@@ -182,11 +221,13 @@ def get_sq(traj, nchunks=5, spacing=0.0, qmax=2*np.pi):
            number of chunks to divide trajectory into,
            spacing in q space,
            max q value
-    OUTPUT: Dictionary containing S(q) for each chunk
+    OUTPUT: Dictionary containing S(q) for each chunk,
+            also S(q) averaged over last nlast chunks
     """
 
     the_dict = {}
     the_dict['nchunks'] = nchunks
+    the_dict['nlast'] = nlast
     seglen = traj['pos'].shape[0]//nchunks
 
     #### Chunk positions ####
@@ -208,6 +249,8 @@ def get_sq(traj, nchunks=5, spacing=0.0, qmax=2*np.pi):
         q1d, sqavg, sqvals = get_sq_range(pos_chunks[n], traj['dim'], traj['edges'], qvals)
         the_dict['sq_vals_%d' % n] = sqvals
         the_dict['sq_vals_1d_%d' % n] = sqavg
+    the_dict['sq_vals_nlast'] = sum([the_dict['sq_vals_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
+    the_dict['sq_vals_1d_nlast'] = sum([the_dict['sq_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
     the_dict['qvals'] = qvals
     the_dict['qvals_1d'] = q1d
     the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
@@ -223,18 +266,24 @@ def get_sq_range(pos, dim, edges, qvals):
         sqvals[i] = get_single_point_sq(pos, dim, edges, qvals[i,:])
 
     #Get "isotropic" S(q) by histogramming
-    nbins=50
-    q1d = np.linspace(0,np.max(qvals),num=nbins+1)
+    #make big enough to only group values with same |q|
+    nbins = 1000#int(2.0/(2*np.pi/edges[0]))
+    print('num bins:', nbins)
+    qnorm = np.zeros(qvals.shape)
+    for i in range(qvals.shape[0]):
+        qnorm[i] = np.linalg.norm(qvals[i])
+    q1d = np.linspace(0,np.max(qnorm)*(1+1.0/nbins),num=nbins)
     counts = np.zeros(nbins,dtype=numba.float64)
     sqavg = np.zeros(nbins, dtype=numba.float64)
-    for i in range(qvals.shape[0]):
-        mag = np.linalg.norm(qvals[i])
-        index = int(np.floor(mag/q1d[-1]*nbins))
-        if index==nbins:
-            index = nbins-1
+    for i in range(qnorm.shape[0]):
+        index = int(np.floor(qnorm[i]/np.max(q1d)*nbins)[0])
         counts[index] += 1.0
         sqavg[index] += sqvals[i]
     sqavg = np.divide(sqavg,counts)
+    q1d = q1d[1:]
+    sqavg = sqavg[1:]
+    q1d = (q1d)[~np.isnan(sqavg)]
+    sqavg = sqavg[~np.isnan(sqavg)]
 
     return q1d, sqavg, sqvals
 

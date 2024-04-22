@@ -5,6 +5,7 @@ import h5py
 import sys
 import os
 import argparse
+import copy
 
 import AnalysisTools.particle_io as io
 import AnalysisTools.measurement_tools as tools
@@ -78,8 +79,12 @@ def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', ma
     OUTPUT: List of dictionaries containing data for each trajectory.
     """
 
-    #Check that basefolder contains "se∆ed=*"
+    #Check that basefolder contains "seed=*"
     dirs = [d for d in os.listdir(basefolder) if os.path.isdir(os.path.join(basefolder, d)) and 'seed=' in d]
+    def seedIndex(val):
+        return int((val.split('='))[-1])
+    dirs.sort(key=seedIndex)
+    #print(dirs)
     dirs = dirs[:max_num_traj]
     if len(dirs)==0:
         raise Exception('Error: base folder does not contain seed subdirectories! Exiting.')
@@ -99,7 +104,7 @@ def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', ma
             else:
                 thefile = dir + '/' + subfolder + '/' + filename
             if filename.endswith('.npz'):
-                data = np.load(thefile, allow_pickle=True)
+                data = dict(np.load(thefile, allow_pickle=True))
             elif filename=='noise_traj.h5':
                 traj = io.load_noise_traj(thefile)
                 data = {dataset: traj[dataset]}
@@ -123,15 +128,23 @@ def get_postprocessed_avg(data_list):
     OUTPUT: Dictionary containing trajectory-averaged data
     """
     
-    keys = data_list[0].keys()
-    avg = dict.fromkeys(keys)
+    avg = {}
+    thekeys = [str(k) for k in data_list[0].keys()]
+    for k in thekeys:
+        avg[k] = None
+    #avg = copy.deepcopy(data_list[0])
+    #for key in avg.keys():
+    #    avg[key] = None
+    #avg = {k: None for k in data_list[0].keys()}
     for data in data_list:
-        for key in data.keys():
+        for key in avg.keys():
+            print(key)
+            print(avg[key])
             if avg[key] is None:
-                avg[key] = data[key]
+                avg[key] = copy.deepcopy(data[str(key)])
             else:
-                avg[key] += data[key]
-    for key in data.keys():
+                avg[key] += data[str(key)]
+    for key in avg.keys():
         avg[key] = avg[key]/len(data_list)
 
     return avg
@@ -146,13 +159,16 @@ def get_postprocessed_stderr(data_list):
     """
 
     avg = get_postprocessed_avg(data_list)
-    keys = avg.keys()
-    stderr = dict.fromkeys(keys)
+    #print(avg)
+    stderr = {}
+    thekeys = [str(k) for k in data_list[0].keys()]
+    for k in thekeys:
+        stderr[k] = None
 
     for data in data_list:
-        for key in data.keys():
+        for key in stderr.keys():
             if stderr[key] is None:
-                stderr[key] = (data[key]-avg[key])**2
+                stderr[key] = (copy.deepcopy(data[key])-copy.deepcopy(avg[key]))**2
             else:
                 stderr[key] += (data[key]-avg[key])**2
 

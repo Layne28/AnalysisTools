@@ -80,12 +80,11 @@ def load_traj(myfile):
 
         pos = np.array(pos)
         potential_energy = np.array(potential_energy)
-        timesteps = np.array(timesteps)
         image = np.array(image)
         conservative_force = log['log/particles/md/pair/LJ/forces']
         active_force = log['log/particles/ActiveNoiseForce/ActiveNoiseForce/forces']
         virial = log['log/particles/md/pair/LJ/virials']
-        times = log['log/Time/time/']
+        times = log['log/Time/time']
         vel = conservative_force + active_force #WARNING: assumes friction = 1!
         N = pos.shape[1]
 
