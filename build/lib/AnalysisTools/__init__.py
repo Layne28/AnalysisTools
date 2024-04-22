@@ -4,5 +4,11 @@ from . import structure_factor
 from . import cell_list
 from . import correlation
 from . import cluster
+from . import energy
+from . import field_analysis
+from . import histogram
+from . import msd
+from . import noise_stats
+from . import trajectory_stats
 
-__all__ = ["particle_io", "measurement_tools", "structure_factor", "cell_list", "cluster", "correlation"]
+__all__ = ["particle_io", "measurement_tools", "structure_factor", "cell_list", "cluster", "correlation", "energy", "field_analysis", "histogram", "msd", "noise_stats", "trajectory_stats"]

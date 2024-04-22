@@ -28,7 +28,8 @@ def main():
     traj = particle_io.load_traj(myfile) #Extract data
     nchunks = int(sys.argv[2])
     #eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
- 
+
+    
     #Compute S(q)
     print('Computing S(q)...')
     sq = get_sq(traj, nchunks=nchunks, qmax=np.pi)
@@ -208,6 +209,7 @@ def get_sq_traj(traj, spacing=0.0, qmax=15.0):
     the_dict['qvals'] = qvals
     the_dict['qvals_1d'] = q1d
     the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
+    the_dict['times'] = traj['times']
     the_dict['times'] = traj['times']
 
     return the_dict
