@@ -28,8 +28,7 @@ def main():
     traj = particle_io.load_traj(myfile) #Extract data
     nchunks = int(sys.argv[2])
     #eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
-
-    
+ 
     #Compute S(q)
     print('Computing S(q)...')
     sq = get_sq(traj, nchunks=nchunks, qmax=np.pi)
@@ -61,7 +60,7 @@ def rebin_sq(base_folder, nbins=-1, max_num_traj=100):
         substring = substring.split('_')[0]
         L = float(substring.split('=')[-1])
         nbins = int(2.0/(2*np.pi/L))
-        print(nbins)
+        #print(nbins)
     
     print('rebinning...')
     data = stats.get_trajectory_data(base_folder, 'sq.npz', dataset='sq', subfolder='prod', max_num_traj=max_num_traj)
@@ -87,6 +86,8 @@ def rebin_sq(base_folder, nbins=-1, max_num_traj=100):
             sq_new = sq_new[~np.isnan(sq_new)]
             d['sq_vals_1d_%d' % n] = sq_new
             d['qvals_1d'] = q1d
+        d['sq_vals_nlast'] = sum([d['sq_vals_%d' % n] for n in range(d['nchunks']-d['nlast'], d['nchunks'])])/d['nlast']
+        d['sq_vals_1d_nlast'] = sum([d['sq_vals_1d_%d' % n] for n in range(d['nchunks']-d['nlast'], d['nchunks'])])/d['nlast']
 
     return data
 
@@ -210,7 +211,6 @@ def get_sq_traj(traj, spacing=0.0, qmax=15.0):
     the_dict['qvals_1d'] = q1d
     the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
     the_dict['times'] = traj['times']
-    the_dict['times'] = traj['times']
 
     return the_dict
 
@@ -234,7 +234,7 @@ def get_sq(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
 
     #### Chunk positions ####
     pos_chunks = []
-    print(traj['pos'].shape)
+    #print(traj['pos'].shape)
     for n in range(nchunks):
         pos_chunks.append(traj['pos'][(n*seglen):((n+1)*seglen),:,:])
 

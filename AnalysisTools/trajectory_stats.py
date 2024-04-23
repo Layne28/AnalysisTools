@@ -138,8 +138,8 @@ def get_postprocessed_avg(data_list):
     #avg = {k: None for k in data_list[0].keys()}
     for data in data_list:
         for key in avg.keys():
-            print(key)
-            print(avg[key])
+            #print(key)
+            #print(avg[key])
             if avg[key] is None:
                 avg[key] = copy.deepcopy(data[str(key)])
             else:
