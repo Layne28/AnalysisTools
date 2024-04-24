@@ -113,7 +113,7 @@ def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', ma
                 data = {dataset: traj[dataset][:,:,:traj['dim']]}
             data_list.append(data)
         except FileNotFoundError:
-            print('Warning: trajectory data file not found. Skipping...')
+            print('Warning: trajectory data file not found. Skipping directory', d)
     if len(data_list)==0:
         raise Exception('Error: no trajectory data found! Exiting.')
     
