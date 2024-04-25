@@ -108,9 +108,12 @@ def rebin_sq(base_folder, nbins=-1, max_num_traj=100):
 def get_allowed_q(qmax, dq, dim):
 
     """Generate a grid of wavevectors (w/ lattice constant dq),
-    then select those within a sphere of radius qmax."""
+    then select those within a sphere of radius qmax.
+    Exclude one half line/disk/sphere because of the symmetry
+    S(q) = S(-q)"""
 
-    qvals = np.arange(0, qmax+dq, dq)
+    qvals = np.arange(-qmax, qmax+dq, dq)
+    #qvalshalf = np.arange(0, qmax+dq, dq)
 
     if dim==3:
         qlist = np.zeros((qvals.shape[0]**3,3))
@@ -119,6 +122,9 @@ def get_allowed_q(qmax, dq, dim):
             for ky in range(qvals.shape[0]):
                 for kz in range(qvals.shape[0]):
                     qvec = np.array([qvals[kx], qvals[ky], qvals[kz]])
+                    if not(np.abs(qvals[kx])<1e-8 and np.abs(qvals[ky])<1e-8 and np.abs(qvals[kz])<1e-8) and np.any(np_all_axis1(np.abs(qlist+qvec)<1e-8)):
+                        #print(qvec, 'equivalent to', -qvec, 'by symmetry')
+                        continue
                     if np.linalg.norm(qvec)<=qmax:
                         qlist[cnt,:] = qvec
                         cnt += 1
@@ -127,7 +133,12 @@ def get_allowed_q(qmax, dq, dim):
         cnt = 0
         for kx in range(qvals.shape[0]):
             for ky in range(qvals.shape[0]):
+                if np.abs(qvals[kx])<1e-8 and np.abs(qvals[ky])<1e-8:
+                    print(np.array([qvals[kx], qvals[ky]]))
                 qvec = np.array([qvals[kx], qvals[ky]])
+                if not(np.abs(qvals[kx])<1e-8 and np.abs(qvals[ky])<1e-8) and np.any(np_all_axis1(np.abs(qlist+qvec)<1e-8)):
+                    #print(qvec, 'equivalent to', -qvec, 'by symmetry')
+                    continue
                 if np.linalg.norm(qvec)<=qmax:
                     qlist[cnt,:] = qvec
                     cnt += 1
@@ -136,6 +147,9 @@ def get_allowed_q(qmax, dq, dim):
         cnt = 0
         for kx in range(qvals.shape[0]):
             qvec = np.array([qvals[kx]])
+            if not(np.abs(qvals[kx])<1e-8) and np.any(np_all_axis1(np.abs(qlist+qvec)<1e-8)):
+                #print(qvec, 'equivalent to', -qvec, 'by symmetry')
+                continue
             if np.linalg.norm(qvec)<=qmax:
                 qlist[cnt,:] = qvec
                 cnt += 1
@@ -144,6 +158,8 @@ def get_allowed_q(qmax, dq, dim):
         print('Error: dim must be 1, 2, or 3.')
         raise ValueError
 
+    print(qvals.shape)
+    print(qlist[:cnt,:].shape)
     return qlist[:cnt,:]
 
 def get_sqt(traj, nchunks=5, spacing=0.0, qmax=2*np.pi, tmax=100.0):
@@ -323,15 +339,17 @@ def get_sq_range(pos, dim, edges, qvals):
     #Get "isotropic" S(q) by histogramming
     #make big enough to only group values with same |q|
     nbins = 1000#int(2.0/(2*np.pi/edges[0]))
-    print('num bins:', nbins)
-    qnorm = np.zeros(qvals.shape)
+    #print('num bins:', nbins)
+    qnorm = np.zeros(qvals.shape[0])
     for i in range(qvals.shape[0]):
         qnorm[i] = np.linalg.norm(qvals[i])
     q1d = np.linspace(0,np.max(qnorm)*(1+1.0/nbins),num=nbins)
     counts = np.zeros(nbins,dtype=numba.float64)
     sqavg = np.zeros(nbins, dtype=numba.float64)
-    for i in range(qnorm.shape[0]):
-        index = int(np.floor(qnorm[i]/np.max(q1d)*nbins)[0])
+    for i in range(qnorm.shape[0]): 
+        #if i<10000:
+        #    print('Sq', i, qnorm[i], qvals[i,:], sqvals[i])
+        index = int(np.floor(qnorm[i]/np.max(q1d)*nbins))
         counts[index] += 1.0
         sqavg[index] += sqvals[i]
     sqavg = np.divide(sqavg,counts)
@@ -357,15 +375,17 @@ def get_sq_var_range(pos, dim, edges, qvals):
     #Get "isotropic" S(q) by histogramming
     #make big enough to only group values with same |q|
     nbins = 1000#int(2.0/(2*np.pi/edges[0]))
-    print('num bins:', nbins)
-    qnorm = np.zeros(qvals.shape)
+    #print('num bins:', nbins)
+    qnorm = np.zeros(qvals.shape[0])
     for i in range(qvals.shape[0]):
         qnorm[i] = np.linalg.norm(qvals[i])
     q1d = np.linspace(0,np.max(qnorm)*(1+1.0/nbins),num=nbins)
     counts = np.zeros(nbins,dtype=numba.float64)
     sqvaravg = np.zeros(nbins, dtype=numba.float64)
     for i in range(qnorm.shape[0]):
-        index = int(np.floor(qnorm[i]/np.max(q1d)*nbins)[0])
+        #if i<10000:
+        #    print('Sqvar', i, qnorm[i], sqvarvals[i])
+        index = int(np.floor(qnorm[i]/np.max(q1d)*nbins))
         counts[index] += 1.0
         sqvaravg[index] += sqvarvals[i]
     sqvaravg = np.divide(sqvaravg,counts)
@@ -425,6 +445,14 @@ def get_single_point_sq2(pos, dim, edges, q):
     sq2 = sq2*(1.0/(N*(traj_len)))
 
     return sq2
+
+@numba.njit(cache=True)
+def np_all_axis1(x):
+    """Numba compatible version of np.all(x, axis=1)."""
+    out = np.ones(x.shape[0], dtype=np.bool8)
+    for i in range(x.shape[1]):
+        out = np.logical_and(out, x[:, i])
+    return out
 
 if __name__ == '__main__':
     main()
