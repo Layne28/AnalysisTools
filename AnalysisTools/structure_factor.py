@@ -30,6 +30,7 @@ def main():
     #eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
  
     #Compute S(q)
+    '''
     print('Computing S(q)...')
     sq = get_sq(traj, nchunks=nchunks, qmax=np.pi)
     print('Computed S(q).')
@@ -38,7 +39,7 @@ def main():
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq.npz'
     print(outfile)
     np.savez(outfile, **sq)
-
+    '''
     #Compute S(q) variance
     print('Computing S(q) variance...')
     sq_var = get_sq_var(traj, nchunks=nchunks, qmax=np.pi)
@@ -339,7 +340,6 @@ def get_sq_range(pos, dim, edges, qvals):
     #Get "isotropic" S(q) by histogramming
     #make big enough to only group values with same |q|
     nbins = 1000#int(2.0/(2*np.pi/edges[0]))
-    #print('num bins:', nbins)
     qnorm = np.zeros(qvals.shape[0])
     for i in range(qvals.shape[0]):
         qnorm[i] = np.linalg.norm(qvals[i])
@@ -347,8 +347,6 @@ def get_sq_range(pos, dim, edges, qvals):
     counts = np.zeros(nbins,dtype=numba.float64)
     sqavg = np.zeros(nbins, dtype=numba.float64)
     for i in range(qnorm.shape[0]): 
-        #if i<10000:
-        #    print('Sq', i, qnorm[i], qvals[i,:], sqvals[i])
         index = int(np.floor(qnorm[i]/np.max(q1d)*nbins))
         counts[index] += 1.0
         sqavg[index] += sqvals[i]
@@ -375,7 +373,6 @@ def get_sq_var_range(pos, dim, edges, qvals):
     #Get "isotropic" S(q) by histogramming
     #make big enough to only group values with same |q|
     nbins = 1000#int(2.0/(2*np.pi/edges[0]))
-    #print('num bins:', nbins)
     qnorm = np.zeros(qvals.shape[0])
     for i in range(qvals.shape[0]):
         qnorm[i] = np.linalg.norm(qvals[i])
@@ -383,8 +380,6 @@ def get_sq_var_range(pos, dim, edges, qvals):
     counts = np.zeros(nbins,dtype=numba.float64)
     sqvaravg = np.zeros(nbins, dtype=numba.float64)
     for i in range(qnorm.shape[0]):
-        #if i<10000:
-        #    print('Sqvar', i, qnorm[i], sqvarvals[i])
         index = int(np.floor(qnorm[i]/np.max(q1d)*nbins))
         counts[index] += 1.0
         sqvaravg[index] += sqvarvals[i]
@@ -442,7 +437,7 @@ def get_single_point_sq2(pos, dim, edges, q):
             rho_imag += np.sin(q[0]*mypos[0]+q[1]*mypos[1])
             #rho += np.exp(-1j*np.dot(q, pos[t,i,:dim]))
         sq2 += (rho_real**2 + rho_imag**2)**2
-    sq2 = sq2*(1.0/(N*(traj_len)))
+    sq2 = sq2*(1.0/(N**2*(traj_len)))
 
     return sq2
 
