@@ -30,6 +30,7 @@ def main():
     #eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
  
     #Compute S(q)
+    
     print('Computing S(q)...')
     sq = get_sq(traj, nchunks=nchunks, qmax=np.pi)
     print('Computed S(q).')
@@ -38,6 +39,16 @@ def main():
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq.npz'
     print(outfile)
     np.savez(outfile, **sq)
+    
+    #Compute S(q) variance
+    print('Computing S(q) variance...')
+    sq_var = get_sq_var(traj, nchunks=nchunks, qmax=np.pi)
+    print('Computed S(q) variance.')
+
+    #### Output S(q) variance to file in same directory as input h5 file ####        
+    outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq_var.npz'
+    print(outfile)
+    np.savez(outfile, **sq_var)
     
     # Compute S(q)(t)
     print('Computing S(q) trajectory...')
@@ -98,9 +109,12 @@ def rebin_sq(base_folder, nbins=-1, max_num_traj=100):
 def get_allowed_q(qmax, dq, dim):
 
     """Generate a grid of wavevectors (w/ lattice constant dq),
-    then select those within a sphere of radius qmax."""
+    then select those within a sphere of radius qmax.
+    Exclude one half line/disk/sphere because of the symmetry
+    S(q) = S(-q)"""
 
-    qvals = np.arange(0, qmax+dq, dq)
+    qvals = np.arange(-qmax, qmax+dq, dq)
+    #qvalshalf = np.arange(0, qmax+dq, dq)
 
     if dim==3:
         qlist = np.zeros((qvals.shape[0]**3,3))
@@ -109,6 +123,9 @@ def get_allowed_q(qmax, dq, dim):
             for ky in range(qvals.shape[0]):
                 for kz in range(qvals.shape[0]):
                     qvec = np.array([qvals[kx], qvals[ky], qvals[kz]])
+                    if not(np.abs(qvals[kx])<1e-8 and np.abs(qvals[ky])<1e-8 and np.abs(qvals[kz])<1e-8) and np.any(np_all_axis1(np.abs(qlist+qvec)<1e-8)):
+                        #print(qvec, 'equivalent to', -qvec, 'by symmetry')
+                        continue
                     if np.linalg.norm(qvec)<=qmax:
                         qlist[cnt,:] = qvec
                         cnt += 1
@@ -117,7 +134,12 @@ def get_allowed_q(qmax, dq, dim):
         cnt = 0
         for kx in range(qvals.shape[0]):
             for ky in range(qvals.shape[0]):
+                if np.abs(qvals[kx])<1e-8 and np.abs(qvals[ky])<1e-8:
+                    print(np.array([qvals[kx], qvals[ky]]))
                 qvec = np.array([qvals[kx], qvals[ky]])
+                if not(np.abs(qvals[kx])<1e-8 and np.abs(qvals[ky])<1e-8) and np.any(np_all_axis1(np.abs(qlist+qvec)<1e-8)):
+                    #print(qvec, 'equivalent to', -qvec, 'by symmetry')
+                    continue
                 if np.linalg.norm(qvec)<=qmax:
                     qlist[cnt,:] = qvec
                     cnt += 1
@@ -126,6 +148,9 @@ def get_allowed_q(qmax, dq, dim):
         cnt = 0
         for kx in range(qvals.shape[0]):
             qvec = np.array([qvals[kx]])
+            if not(np.abs(qvals[kx])<1e-8) and np.any(np_all_axis1(np.abs(qlist+qvec)<1e-8)):
+                #print(qvec, 'equivalent to', -qvec, 'by symmetry')
+                continue
             if np.linalg.norm(qvec)<=qmax:
                 qlist[cnt,:] = qvec
                 cnt += 1
@@ -134,9 +159,14 @@ def get_allowed_q(qmax, dq, dim):
         print('Error: dim must be 1, 2, or 3.')
         raise ValueError
 
+    print(qvals.shape)
+    print(qlist[:cnt,:].shape)
     return qlist[:cnt,:]
 
 def get_sqt(traj, nchunks=5, spacing=0.0, qmax=2*np.pi, tmax=100.0):
+
+    #TODO: actually implement this (doesn't really compute dynamic 
+    #structure factor right now)
 
     """
     Compute dynamic structure factor.
@@ -214,6 +244,45 @@ def get_sq_traj(traj, spacing=0.0, qmax=15.0):
 
     return the_dict
 
+def get_sq_var(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
+
+    """
+    Compute fluctuations (variance) in structure factor,
+    i.e. <S(q)^2>-<S(q)>^2 for each q.
+
+    INPUT: Particle trajectory (dictionary),
+           number of chunks to divide trajectory into,
+           number of chunks starting from end of trajectory to average over,
+           spacing in q space,
+           max q value
+    OUTPUT: Dictionary containing S(q) flucs averaged over last nlast chunks
+    """
+
+    the_dict = {}
+    the_dict['nchunks'] = nchunks
+    the_dict['nlast'] = nlast
+    seglen = traj['pos'].shape[0]//nchunks
+
+    #### Chunk positions ####
+    pos = traj['pos'][-(nlast*seglen):,:,:]
+
+    #### Compute allowed wavevectors ####
+    dim=traj['dim']
+    if spacing==0.0:
+        spacing = 2*np.pi/(np.max(traj['edges'])) #spacing
+        
+    qvals = get_allowed_q(qmax, spacing, dim)
+
+    #### Compute S(q) variance for each wavevector ####
+    q1d, sqvaravg, sqvarvals = get_sq_var_range(pos, traj['dim'], traj['edges'], qvals)
+    the_dict['sq_var_vals'] = sqvarvals
+    the_dict['sq_var_vals_1d'] = sqvaravg
+    the_dict['qvals'] = qvals
+    the_dict['qvals_1d'] = q1d
+    the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
+
+    return the_dict
+
 def get_sq(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
 
     """
@@ -221,6 +290,7 @@ def get_sq(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
 
     INPUT: Particle trajectory (dictionary),
            number of chunks to divide trajectory into,
+           number of chunks starting from end of trajectory to average over,
            spacing in q space,
            max q value
     OUTPUT: Dictionary containing S(q) for each chunk,
@@ -270,15 +340,14 @@ def get_sq_range(pos, dim, edges, qvals):
     #Get "isotropic" S(q) by histogramming
     #make big enough to only group values with same |q|
     nbins = 1000#int(2.0/(2*np.pi/edges[0]))
-    print('num bins:', nbins)
-    qnorm = np.zeros(qvals.shape)
+    qnorm = np.zeros(qvals.shape[0])
     for i in range(qvals.shape[0]):
         qnorm[i] = np.linalg.norm(qvals[i])
     q1d = np.linspace(0,np.max(qnorm)*(1+1.0/nbins),num=nbins)
     counts = np.zeros(nbins,dtype=numba.float64)
     sqavg = np.zeros(nbins, dtype=numba.float64)
-    for i in range(qnorm.shape[0]):
-        index = int(np.floor(qnorm[i]/np.max(q1d)*nbins)[0])
+    for i in range(qnorm.shape[0]): 
+        index = int(np.floor(qnorm[i]/np.max(q1d)*nbins))
         counts[index] += 1.0
         sqavg[index] += sqvals[i]
     sqavg = np.divide(sqavg,counts)
@@ -288,6 +357,39 @@ def get_sq_range(pos, dim, edges, qvals):
     sqavg = sqavg[~np.isnan(sqavg)]
 
     return q1d, sqavg, sqvals
+
+@numba.jit(nopython=True)
+def get_sq_var_range(pos, dim, edges, qvals):
+
+    sqvals = np.zeros(qvals.shape[0],dtype=numba.float64)
+    sq2vals = np.zeros(qvals.shape[0],dtype=numba.float64)
+    sqvarvals = np.zeros(qvals.shape[0],dtype=numba.float64)
+    for i in range(qvals.shape[0]):
+        #print(qvals[i,:])
+        sqvals[i] = get_single_point_sq(pos, dim, edges, qvals[i,:])
+        sq2vals[i] = get_single_point_sq2(pos, dim, edges, qvals[i,:])
+        sqvarvals[i] = sq2vals[i] - sqvals[i]**2
+
+    #Get "isotropic" S(q) by histogramming
+    #make big enough to only group values with same |q|
+    nbins = 1000#int(2.0/(2*np.pi/edges[0]))
+    qnorm = np.zeros(qvals.shape[0])
+    for i in range(qvals.shape[0]):
+        qnorm[i] = np.linalg.norm(qvals[i])
+    q1d = np.linspace(0,np.max(qnorm)*(1+1.0/nbins),num=nbins)
+    counts = np.zeros(nbins,dtype=numba.float64)
+    sqvaravg = np.zeros(nbins, dtype=numba.float64)
+    for i in range(qnorm.shape[0]):
+        index = int(np.floor(qnorm[i]/np.max(q1d)*nbins))
+        counts[index] += 1.0
+        sqvaravg[index] += sqvarvals[i]
+    sqvaravg = np.divide(sqvaravg,counts)
+    q1d = q1d[1:]
+    sqvaravg = sqvaravg[1:]
+    q1d = (q1d)[~np.isnan(sqvaravg)]
+    sqvaravg = sqvaravg[~np.isnan(sqvaravg)]
+
+    return q1d, sqvaravg, sqvarvals
 
 @numba.jit(nopython=True)
 def get_single_point_sq(pos, dim, edges, q):
@@ -313,6 +415,39 @@ def get_single_point_sq(pos, dim, edges, q):
     sq = sq*(1.0/(N*(traj_len)))
 
     return sq
+
+@numba.jit(nopython=True)
+def get_single_point_sq2(pos, dim, edges, q):
+
+    sq2 = 0
+    N = pos.shape[1]
+    traj_len = pos.shape[0]
+    #print('q:', q)
+    for t in range(traj_len):
+        #rho = 0. + 0.j
+        rho_real = 0
+        rho_imag = 0
+        for i in range(N):
+            mypos = pos[t,i,:dim]
+            mypos[0] += edges[0]/2.0
+            mypos[1] += edges[1]/2.0
+            #rho_real += np.cos(np.dot(q,mypos))
+            #rho_imag += np.sin(np.dot(q,mypos))
+            rho_real += np.cos(q[0]*mypos[0]+q[1]*mypos[1])
+            rho_imag += np.sin(q[0]*mypos[0]+q[1]*mypos[1])
+            #rho += np.exp(-1j*np.dot(q, pos[t,i,:dim]))
+        sq2 += (rho_real**2 + rho_imag**2)**2
+    sq2 = sq2*(1.0/(N**2*(traj_len)))
+
+    return sq2
+
+@numba.njit(cache=True)
+def np_all_axis1(x):
+    """Numba compatible version of np.all(x, axis=1)."""
+    out = np.ones(x.shape[0], dtype=np.bool8)
+    for i in range(x.shape[1]):
+        out = np.logical_and(out, x[:, i])
+    return out
 
 if __name__ == '__main__':
     main()

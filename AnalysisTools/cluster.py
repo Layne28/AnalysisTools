@@ -23,7 +23,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Cluster particles in trajectory and compute CSD.')
     parser.add_argument('file', help='Trajectory file (h5md format).')
-    parser.add_argument('--rc', default=1.1, help='Cutoff distance for defining cluster.')
+    parser.add_argument('--rc', default=1.5, help='Cutoff distance for defining cluster.')
     parser.add_argument('--nchunks', default=5, help='Divide trajectory into this many chunks.')
 
     args = parser.parse_args()
@@ -159,6 +159,13 @@ def cluster_traj(traj,out_folder,rc):
 
     #Write data
     #np.savetxt(out_folder + '/cluster_hist_rc=%f.txt' % rc, np.c_[size_bins,cluster_size_hist,num_hist], header='bin size num')
+
+
+def get_avg_size(n, p):
+    return np.sum(n*p)
+
+def get_avg_mass_weighted_size(n, p):
+    return np.sum(n**2*p)/np.sum(n*p)
 
 ##################
 #Cluster functions

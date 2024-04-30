@@ -138,12 +138,16 @@ def get_postprocessed_avg(data_list):
     #avg = {k: None for k in data_list[0].keys()}
     for data in data_list:
         for key in avg.keys():
-            #print(key)
-            #print(avg[key])
-            if avg[key] is None:
-                avg[key] = copy.deepcopy(data[str(key)])
-            else:
-                avg[key] += data[str(key)]
+            try:
+                #print(key)
+                #print(avg[key])
+                if avg[key] is None:
+                    avg[key] = copy.deepcopy(data[str(key)])
+                else:
+                    avg[key] += data[str(key)]
+            except:
+                print('Warning: key %s not found!' % str(key))
+                continue
     for key in avg.keys():
         avg[key] = avg[key]/len(data_list)
 
@@ -167,10 +171,14 @@ def get_postprocessed_stderr(data_list):
 
     for data in data_list:
         for key in stderr.keys():
-            if stderr[key] is None:
-                stderr[key] = (copy.deepcopy(data[key])-copy.deepcopy(avg[key]))**2
-            else:
-                stderr[key] += (data[key]-avg[key])**2
+            try:
+                if stderr[key] is None:
+                    stderr[key] = (copy.deepcopy(data[key])-copy.deepcopy(avg[key]))**2
+                else:
+                    stderr[key] += (data[key]-avg[key])**2
+            except:
+                print('Warning: key %s not found!' % key)
+                continue
 
     if len(data_list)>1:
         for key in data.keys():
@@ -426,8 +434,10 @@ def get_postprocessed_csd(data_list):
     the_dict['bins'] = data_list[0]['bins_0']
     the_dict['nchunks'] = nchunks
     for n in range(nchunks):
+        the_dict['hist_%d' % n] = None
         for t in range(len(data_list)):
             hist = data_list[t]['hist_%d' % n]
+            #print(hist)
             
             if the_dict['hist_%d' % n] is None:
                 the_dict['hist_%d' % n] = hist
@@ -435,6 +445,7 @@ def get_postprocessed_csd(data_list):
                 the_dict['hist_%d' % n] += hist
         #normalize counts to probability
         the_dict['hist_%d' % n] = the_dict['hist_%d' % n]/np.sum(the_dict['hist_%d' % n])
+        #print(the_dict['hist_%d' % n])
 
     return the_dict
 

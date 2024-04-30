@@ -30,7 +30,7 @@ def main():
     #eq_frac = float(sys.argv[2]) #cut off first eq_frac*100% of data (equilibration)
  
     #Compute S(q)
-    '''
+    
     print('Computing S(q)...')
     sq = get_sq(traj, nchunks=nchunks, qmax=np.pi)
     print('Computed S(q).')
@@ -39,7 +39,7 @@ def main():
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/sq.npz'
     print(outfile)
     np.savez(outfile, **sq)
-    '''
+    
     #Compute S(q) variance
     print('Computing S(q) variance...')
     sq_var = get_sq_var(traj, nchunks=nchunks, qmax=np.pi)
