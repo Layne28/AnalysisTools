@@ -22,7 +22,7 @@ def main():
     parser.add_argument('--subfolder', default='prod', help='Within each seed folder, look in this subfolder.')
     parser.add_argument('--max_num_traj', default=1000, help='Max number of trajectories to load and analyze.')
     parser.add_argument('--nchunks', default=5, help='Number of chunks to divide trajectories into (if applicable).')
-    parser.add_argument('--rc', default=1.1, help='Cluster size cutoff, only needed if stats_type=csd.')
+    parser.add_argument('--rc', default=1.5, help='Cluster size cutoff, only needed if stats_type=csd.')
 
     args = parser.parse_args()
 
@@ -32,7 +32,7 @@ def main():
     dataset=None
     if args.traj_type=='postprocessed':
         if args.quantity=='csd':
-            filename = args.quantity + '_rc=%f.npz' % args.rc
+            filename = args.quantity + '_rc=%f.npz' % float(args.rc)
         else:
             filename = args.quantity + '.npz'
     elif args.traj_type=='noise':
@@ -54,7 +54,7 @@ def main():
             np.savez(basefolder + '/' + args.quantity + '_histo.npz', **myhisto)
         elif args.stats_type=='csd':
             mycsd = get_postprocessed_csd(data)
-            np.savez(basefolder + 'csd_rc=%f.npz', **mycsd)
+            np.savez(basefolder + 'csd_rc=%f.npz' % float(args.rc), **mycsd)
     
     else:
         if args.stats_type=='average':

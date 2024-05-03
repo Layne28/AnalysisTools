@@ -74,7 +74,9 @@ def create_cell_list(pos, edges, narr, sarr, dim):
             icell = -1
             
         if icell>=ncells:
-            print('WARNING: icell greater than or equal to ncells')#: icell=%d' % icell)
+            print('WARNING: icell greater than or equal to ncells: icell=', icell)
+            #print('%.15f %.15f' % (pos[i,0], pos[i,1]))
+            print(pos[i,0], pos[i,1], sarr[0], sarr[1], narr[0])
         cell_index[i] = icell
         cell_list[i] = head[icell]
         if cell_list[i]>=N:

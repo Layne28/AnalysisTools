@@ -60,6 +60,25 @@ def apply_min_image(disp_r, edges):
         new_disp[i,:] = get_min_disp(disp_r[i,:],np.zeros(disp_r.shape[0]),edges)
     return new_disp
 
+@numba.jit(nopython=True)
+def apply_pbc(pos, edges):
+
+    """
+    Apply the pbc to all particle positions.
+    
+    INPUT: Vector of positions (numpy array) and array of periodic box
+           dimensions.
+    OUTPUT: Vector of positions (numpy array.)
+    """
+
+    arr1 = edges/2.0
+    arr2 = -edges/2.0
+
+    new_pos = np.zeros((pos.shape))
+    for i in range(pos.shape[0]):
+        new_pos[i,:] = np.where(pos[i,:]>=arr1, pos[i,:]-edges, pos[i,:])
+        new_pos[i,:] = np.where(new_pos[i,:]<arr2, new_pos[i,:]+edges, new_pos[i,:])
+    return new_pos
 
 #This function takes in a position trajectory and an array of bonds (fixed through trajectory)
 @numba.jit(nopython=True)

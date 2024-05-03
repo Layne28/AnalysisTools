@@ -37,8 +37,8 @@ def main():
     out_folder = '/'.join((myfile.split('/'))[:-1])
 
     #Do clustering if files don't already exist
-    if not(os.path.isfile(out_folder + '/clusters_rc=%f.h5' % rc)):
-        cluster_traj(traj,out_folder,rc)
+    #if not(os.path.isfile(out_folder + '/clusters_rc=%f.h5' % rc)):
+    cluster_traj(traj,out_folder,rc)
 
     #Get CSD
     csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0)
@@ -131,9 +131,11 @@ def cluster_traj(traj,out_folder,rc):
         #    print('frame ', t)
 
         #Create cell list for locating pairs of particles
-        head, cell_list, cell_index = cl.create_cell_list(traj['pos'][t,:,:], traj['edges'], ncell_arr, cellsize_arr, traj['dim'])
+        pos = tools.apply_pbc(traj['pos'][t,:,:], traj['edges'])
+        #print(np.max(pos), np.min(pos))
+        head, cell_list, cell_index = cl.create_cell_list(pos, traj['edges'], ncell_arr, cellsize_arr, traj['dim'])
 
-        cluster_id = get_clusters(traj['pos'][t,:,:], traj['edges'][:(traj['dim'])], head, cell_list, cell_index, cell_neigh, rc, traj['dim'], traj['N'])
+        cluster_id = get_clusters(pos, traj['edges'][:(traj['dim'])], head, cell_list, cell_index, cell_neigh, rc, traj['dim'], traj['N'])
         cluster_id = sort_clusters(cluster_id)
         num_clusters[t] = np.max(cluster_id)
         unique, counts = np.unique(cluster_id, return_counts=True)          
