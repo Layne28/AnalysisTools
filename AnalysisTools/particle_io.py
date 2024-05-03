@@ -91,6 +91,8 @@ def load_traj(myfile):
 
 
         pos = np.array(pos)
+        #print(pos)
+        #print('max position:', np.max(pos))
         potential_energy = np.array(potential_energy)
         image = np.array(image)
         if has_topology==1:

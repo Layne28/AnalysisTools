@@ -53,6 +53,7 @@ def main():
             myhisto = get_postprocessed_histogram(data, args.quantity)
             np.savez(basefolder + '/' + args.quantity + '_histo.npz', **myhisto)
         elif args.stats_type=='csd':
+            print('getting csd')
             mycsd = get_postprocessed_csd(data)
             np.savez(basefolder + 'csd_rc=%f.npz' % float(args.rc), **mycsd)
     
@@ -81,6 +82,7 @@ def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', ma
 
     #Check that basefolder contains "seed=*"
     dirs = [d for d in os.listdir(basefolder) if os.path.isdir(os.path.join(basefolder, d)) and 'seed=' in d]
+    print(dirs)
     def seedIndex(val):
         return int((val.split('='))[-1])
     dirs.sort(key=seedIndex)
@@ -104,6 +106,7 @@ def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', ma
             else:
                 thefile = dir + '/' + subfolder + '/' + filename
             if filename.endswith('.npz'):
+                print(dir)
                 data = dict(np.load(thefile, allow_pickle=True))
             elif filename=='noise_traj.h5':
                 traj = io.load_noise_traj(thefile)
@@ -420,7 +423,7 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
 
     return the_dict
 
-def get_postprocessed_csd(data_list):
+def get_postprocessed_csd(data_list, nlast=3):
 
     """
     Compute CSD over trajectories
@@ -433,6 +436,7 @@ def get_postprocessed_csd(data_list):
     the_dict = {}
     the_dict['bins'] = data_list[0]['bins_0']
     the_dict['nchunks'] = nchunks
+    the_dict['hist_nlast'] = None
     for n in range(nchunks):
         the_dict['hist_%d' % n] = None
         for t in range(len(data_list)):
@@ -443,10 +447,16 @@ def get_postprocessed_csd(data_list):
                 the_dict['hist_%d' % n] = hist
             else:
                 the_dict['hist_%d' % n] += hist
+
+            if n>=(nchunks-nlast):
+                if the_dict['hist_nlast'] is None:
+                    the_dict['hist_nlast'] = hist
+                else:
+                    the_dict['hist_nlast'] += hist
         #normalize counts to probability
         the_dict['hist_%d' % n] = the_dict['hist_%d' % n]/np.sum(the_dict['hist_%d' % n])
         #print(the_dict['hist_%d' % n])
-
+    the_dict['hist_nlast'] = the_dict['hist_nlast']/np.sum(the_dict['hist_nlast'])
     return the_dict
 
 if __name__ == '__main__':

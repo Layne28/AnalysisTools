@@ -130,6 +130,7 @@ def cluster_traj(traj,out_folder,rc):
         #if t%1000==0:
         #    print('frame ', t)
 
+        print(t, np.max(traj['pos'][t,:,:]))
         #Create cell list for locating pairs of particles
         pos = tools.apply_pbc(traj['pos'][t,:,:], traj['edges'])
         #print(np.max(pos), np.min(pos))
