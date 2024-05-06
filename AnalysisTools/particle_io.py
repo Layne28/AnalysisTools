@@ -138,9 +138,9 @@ def load_noise_traj(myfile):
     traj_dict = {}
 
     #noise parameters
-    Lambda = np.array(traj['/parameters/lambda'])
+    Lambda = np.array(traj['/parameters/Lambda'])
     tau = np.array(traj['/parameters/tau'])
-    D = np.array(traj['/parameters/D'])
+    va = np.array(traj['/parameters/va'])
 
     #grid dimensions
     ncells = np.array(traj['/grid/dimensions'])
@@ -148,7 +148,7 @@ def load_noise_traj(myfile):
     dim = ncells.shape[0]
 
     #noise data
-    times = np.array(traj['/noise/time'])
+    times = np.array(traj['/noise/timestep'])
     if dim==1:
         noise = np.zeros((times.shape[0],ncells[0],1))
         noise = np.array(traj['/noise/value/x'])
@@ -171,7 +171,7 @@ def load_noise_traj(myfile):
     #Assign data to dictionary
     traj_dict['tau'] = tau
     traj_dict['lambda'] = Lambda
-    traj_dict['D'] = D
+    traj_dict['va'] = va
 
     traj_dict['dim'] = dim
     traj_dict['ncells'] = ncells
