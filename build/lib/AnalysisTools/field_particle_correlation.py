@@ -43,7 +43,7 @@ def correlate_density(particle_traj, noise_traj, noise_file):
 
     #Get density field
     density_field = get_density_field(nframes, nskip, particle_traj['pos'], edges, mag_field, spacing, dims)
-    np.savez('/'.join((noise_file.split('/'))[:-1]) + '/density_traj.npz', density=density_field)
+    #np.savez('/'.join((noise_file.split('/'))[:-1]) + '/density_traj.npz', density=density_field)
 
     #Get noise-density correlation
     noise_mean = np.average(mag_field)
