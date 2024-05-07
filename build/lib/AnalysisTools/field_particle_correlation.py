@@ -15,6 +15,8 @@ def main():
     particle_file = sys.argv[1]
     noise_file = sys.argv[2]
     property = sys.argv[3] #density or pressure 
+
+    do_print_density=0
     
     particle_traj = io.load_traj(particle_file)
     noise_traj = io.load_noise_traj(noise_file)
@@ -43,7 +45,8 @@ def correlate_density(particle_traj, noise_traj, noise_file):
 
     #Get density field
     density_field = get_density_field(nframes, nskip, particle_traj['pos'], edges, mag_field, spacing, dims)
-    #np.savez('/'.join((noise_file.split('/'))[:-1]) + '/density_traj.npz', density=density_field)
+    if do_print_density==1:
+        np.savez('/'.join((noise_file.split('/'))[:-1]) + '/density_traj.npz', density=density_field)
 
     #Get noise-density correlation
     noise_mean = np.average(mag_field)
