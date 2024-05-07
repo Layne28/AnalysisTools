@@ -14,16 +14,19 @@ def main():
     ### Load data ####
     particle_file = sys.argv[1]
     noise_file = sys.argv[2]
-    property = sys.argv[3] #density or pressure 
+    quantity = sys.argv[3] #density or pressure 
 
     do_print_density=0
     
     particle_traj = io.load_traj(particle_file)
     noise_traj = io.load_noise_traj(noise_file)
-    if property=='density':
+    if quantity=='density':
         corr = correlate_density(particle_traj, noise_traj, noise_file)
-    elif property=='pressure':
+    elif quantity=='pressure':
         corr = correlate_pressure(particle_traj, noise_traj)
+    else:
+        print('Error: quantity not yet supported.')
+        exit()
 
     #### Output field properties to file in same directory as input file ####        
     outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation.npz' % property
