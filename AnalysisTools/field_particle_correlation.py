@@ -15,8 +15,6 @@ def main():
     particle_file = sys.argv[1]
     noise_file = sys.argv[2]
     quantity = sys.argv[3] #density or pressure 
-
-    do_print_density=0
     
     particle_traj = io.load_traj(particle_file)
     noise_traj = io.load_noise_traj(noise_file)
@@ -34,6 +32,7 @@ def main():
 
 def correlate_density(particle_traj, noise_traj, noise_file):
 
+    do_print_density=0
     #Compute scaled positions
     edges = particle_traj['edges']
     spacing = noise_traj['spacing']
