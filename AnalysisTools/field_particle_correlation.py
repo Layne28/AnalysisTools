@@ -19,15 +19,15 @@ def main():
     particle_traj = io.load_traj(particle_file)
     noise_traj = io.load_noise_traj(noise_file)
     if quantity=='density':
-        corr, corr_sparse, noise_mean, quantity_mean, quantity_mean_sparse = correlate_density(particle_traj, noise_traj, noise_file)
+        corr, corr_sparse, noise_mean, noise_var, quantity_mean, quantity_var, quantity_mean_sparse, quantity_var_sparse = correlate_density(particle_traj, noise_traj, noise_file)
         #### Output field properties to file in same directory as input file ####        
         outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation.npz' % quantity
-        np.savez(outfile, one_point_corr=corr, one_point_corr_sparse=corr_sparse, mean_density=quantity_mean, mean_density_sparse=quantity_mean_sparse, mean_noise=noise_mean)
+        np.savez(outfile, one_point_corr=corr, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_sparse=corr_sparse, one_point_corr_sparse_norm=corr_sparse/np.sqrt(noise_var*quantity_var_sparse), mean_density=quantity_mean, mean_density_sparse=quantity_mean_sparse, var_density=quantity_var, var_density_sparse=quantity_var_sparse, mean_noise=noise_mean, var_noise=noise_var)
     elif quantity=='pressure':
-        corr, corr_abs, noise_mean, quantity_mean = correlate_pressure(particle_traj)
+        corr, corr_abs, noise_mean, noise_var, quantity_mean, quantity_var, quantity_mean_abs, quantity_var_abs = correlate_pressure(particle_traj)
         #### Output field properties to file in same directory as input file ####        
         outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation.npz' % quantity
-        np.savez(outfile, one_point_corr=corr, one_point_corr_abs=corr_abs, mean_pressure=quantity_mean, mean_noise=noise_mean)
+        np.savez(outfile, one_point_corr=corr, one_point_corr_abs=corr_abs, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_abs_norm=corr_abs/np.sqrt(noise_var*quantity_var_abs), mean_pressure=quantity_mean, var_pressure=quantity_var, mean_pressure_abs=quantity_mean_abs, var_pressure_abs=quantity_var_abs, mean_noise=noise_mean, var_noise=noise_var)
     else:
         print('Error: quantity not yet supported.')
         exit()
@@ -62,16 +62,16 @@ def correlate_density(particle_traj, noise_traj, noise_file):
 
     #Get noise-density correlation
     noise_mean = np.average(mag_field)
-    print(noise_mean)
+    noise_var = np.var(mag_field)
     density_mean = np.average(density_field)
+    density_var = np.var(density_field)
     density_mean_sparse = np.average(density_field_sparse)
-    print(density_mean)
+    density_var_sparse = np.var(density_field_sparse)
+
     corr = np.average(np.multiply(mag_field, density_field)) - noise_mean*density_mean
     corr_sparse = np.average(np.multiply(mag_field, density_field_sparse)) - noise_mean*density_mean_sparse
-    print(corr)
-    print(corr_sparse)
 
-    return corr, corr_sparse, noise_mean, density_mean, density_mean_sparse
+    return corr, corr_sparse, noise_mean, noise_var, density_mean, density_var, density_mean_sparse, density_var_sparse
 
 def correlate_pressure(particle_traj):
 
@@ -88,18 +88,16 @@ def correlate_pressure(particle_traj):
     print(active_mag.shape)
 
     noise_mean = np.average(active_mag)
+    noise_var = np.var(active_mag)
     pressure_mean = np.average(pressure)
+    pressure_var = np.var(pressure)
     pressure_abs_mean = np.average(np.abs(pressure))
+    pressure_abs_var = np.var(np.abs(pressure))
 
     corr = np.average(np.multiply(active_mag, pressure)) - noise_mean*pressure_mean
     corr_abs = np.average(np.multiply(active_mag, np.abs(pressure))) - noise_mean*pressure_abs_mean
 
-    print(corr)
-    print(corr_abs)
-    print(noise_mean)
-    print(pressure_mean)
-
-    return corr, corr_abs, noise_mean, pressure_mean
+    return corr, corr_abs, noise_mean, noise_var, pressure_mean, pressure_var, pressure_abs_mean, pressure_abs_var
 
 @numba.jit(nopython=True)
 def get_density_field(nframes, nskip, pos, edges, mag_field, spacing, dims, do_sparse=0):
