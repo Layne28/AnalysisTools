@@ -14,11 +14,12 @@ def main():
 
     ### Load data ####
     particle_file = sys.argv[1]
-    noise_file = sys.argv[2]
-    quantity = sys.argv[3] #density or pressure 
+    quantity = sys.argv[2] #density or pressure 
+    if quantity=='density':
+        noise_file = sys.argv[3]
+        noise_traj = io.load_noise_traj(noise_file)
     
     particle_traj = io.load_traj(particle_file)
-    noise_traj = io.load_noise_traj(noise_file)
     if quantity=='density':
         corr, corr_sparse, noise_mean, noise_var, quantity_mean, quantity_var, quantity_mean_sparse, quantity_var_sparse = correlate_density(particle_traj, noise_traj, noise_file)
         #### Output field properties to file in same directory as input file ####        
@@ -43,7 +44,7 @@ def main():
 
         #### Output field properties to file in same directory as input file ####        
         outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation.npz' % quantity
-        np.savez(outfile, one_point_corr=corr, one_point_corr_abs=corr_abs, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_abs_norm=corr_abs/np.sqrt(noise_var*quantity_var_abs), mean_pressure=quantity_mean, var_pressure=quantity_var, mean_pressure_abs=quantity_mean_abs, var_pressure_abs=quantity_var_abs, mean_noise=noise_mean, var_noise=noise_var, spatial_corr=corr_r, spatial_corr_abs=corr_r_abs)
+        np.savez(outfile, one_point_corr=corr, one_point_corr_abs=corr_abs, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_abs_norm=corr_abs/np.sqrt(noise_var*quantity_var_abs), mean_pressure=quantity_mean, var_pressure=quantity_var, mean_pressure_abs=quantity_mean_abs, var_pressure_abs=quantity_var_abs, mean_noise=noise_mean, var_noise=noise_var, spatial_corr=corr_r, spatial_corr_abs=corr_r_abs, spatial_corr_norm=(corr_r-noise_mean*quantity_mean)/np.sqrt(noise_var*quantity_var), spatial_corr_abs_norm=(corr_r_abs-noise_mean*quantity_mean_abs)/np.sqrt(noise_var*quantity_var_abs))
     else:
         print('Error: quantity not yet supported.')
         exit()
