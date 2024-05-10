@@ -7,6 +7,7 @@ import numba
 
 import AnalysisTools.particle_io as io
 import AnalysisTools.measurement_tools as tools
+import AnalysisTools.cell_list as cl
 
 #TODO: make this work for dim=3, not just 2
 def main():
@@ -24,10 +25,25 @@ def main():
         outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation.npz' % quantity
         np.savez(outfile, one_point_corr=corr, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_sparse=corr_sparse, one_point_corr_sparse_norm=corr_sparse/np.sqrt(noise_var*quantity_var_sparse), mean_density=quantity_mean, mean_density_sparse=quantity_mean_sparse, var_density=quantity_var, var_density_sparse=quantity_var_sparse, mean_noise=noise_mean, var_noise=noise_var)
     elif quantity=='pressure':
+        print('Getting one-point correlation...')
         corr, corr_abs, noise_mean, noise_var, quantity_mean, quantity_var, quantity_mean_abs, quantity_var_abs = correlate_pressure(particle_traj)
+
+        print('Getting spatial cross-correlation...')
+        nframes = particle_traj['pos'].shape[0]
+        nskip = int(nframes*0.4)
+        pos = particle_traj['pos'][nskip:,...]
+        active_force = particle_traj['active_force'][nskip:,...]
+        active_mag = np.sqrt(active_force[...,0]**2+active_force[...,1]**2)
+        virial = particle_traj['virial'][nskip:,...]
+        pressure = -(virial[:,:,0]+virial[:,:,3])/2.0
+        pressure_abs = np.abs(pressure)
+
+        corr_r = get_spatial_cross_corr(active_mag, pressure, pos, particle_traj['edges'], particle_traj['dim'], rmax=30.0)
+        corr_r_abs = get_spatial_cross_corr(active_mag, pressure_abs, pos, particle_traj['edges'], particle_traj['dim'], rmax=30.0)
+
         #### Output field properties to file in same directory as input file ####        
         outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation.npz' % quantity
-        np.savez(outfile, one_point_corr=corr, one_point_corr_abs=corr_abs, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_abs_norm=corr_abs/np.sqrt(noise_var*quantity_var_abs), mean_pressure=quantity_mean, var_pressure=quantity_var, mean_pressure_abs=quantity_mean_abs, var_pressure_abs=quantity_var_abs, mean_noise=noise_mean, var_noise=noise_var)
+        np.savez(outfile, one_point_corr=corr, one_point_corr_abs=corr_abs, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_abs_norm=corr_abs/np.sqrt(noise_var*quantity_var_abs), mean_pressure=quantity_mean, var_pressure=quantity_var, mean_pressure_abs=quantity_mean_abs, var_pressure_abs=quantity_var_abs, mean_noise=noise_mean, var_noise=noise_var, spatial_corr=corr_r, spatial_corr_abs=corr_r_abs)
     else:
         print('Error: quantity not yet supported.')
         exit()
@@ -151,6 +167,73 @@ def get_density_field(nframes, nskip, pos, edges, mag_field, spacing, dims, do_s
                             density_field[t,xind,yind] = 1.0
 
     return density_field
+
+@numba.jit(nopython=True)
+def get_spatial_cross_corr(obs1, obs2, pos, edges, dim, rmax=50.0, nbins=100, use_cell_list=1):
+
+    """
+    Compute spatial correlation between two observables along r
+    (assuming radial symmetry) of some observable over a trajectory.
+    
+    INPUT: Trajectory observable 1 (nframes x N x (1 or d) numpy array) 
+    (either scalar or vector), trajectory observable 2 (nframes x N x (1 or d) numpy array), positions (nframes x N x d numpy array), edges (1d numpy array)
+    OUTPUT: Radial position cross-correlation function (2d numpy array)
+    """
+    
+    #if len(obs1.shape)!=3:
+    #    print('Error: need 3D numpy array (nsteps, N, size of observable.)')
+    #    raise TypeError
+
+    N = obs1.shape[1]
+    fmax = obs1.shape[0] #max frame
+    corr = np.zeros((nbins,2))
+    counts = np.zeros(nbins)
+    dr = rmax/nbins
+    print(dr)
+    for i in range(nbins):
+        corr[i,0] = i*dr
+    
+    if use_cell_list==1:
+        print('Using cell list')
+        ncell_arr, cellsize_arr, cell_neigh = cl.init_cell_list(edges, rmax, dim)
+        for t in range(fmax):
+            if t%10==0:
+                print(t)
+            #Create cell list for locating pairs of particles
+            head, cell_list, cell_index = cl.create_cell_list(pos[t,:,:], edges, ncell_arr, cellsize_arr, dim)
+            for i in range(N):
+                pos1 = pos[t,i,:]
+                icell = int(cell_index[i])
+                for nc in range(cell_neigh[icell][0]):
+                    jcell = int(cell_neigh[icell][nc+1])
+                    j = int(head[jcell])
+                    while j != -1:
+                        pos2 = pos[t,j,:]
+                        rij = tools.get_min_dist(pos1,pos2,edges)
+                        if rij<rmax:
+                            index = int(rij/dr)
+                            counts[index] += 1#2
+                            corr[index,1] += obs1[t,i]*obs2[t,j]
+                            #corr[index,1] += np.dot(obs1[t,j,:],obs2[t,i,:])
+                        j = int(cell_list[j])
+
+    else:
+        for t in range(fmax):
+            if t%10==0:
+                print(t)
+            for i in range(N-1):
+                for j in range(i+1,N):
+                    rij = tools.get_min_dist(pos[t,i,:],pos[t,j,:],edges)
+                    if rij<rmax:
+                        index = int(rij/dr)
+                        counts[index] += 1
+                        corr[index,1] += obs1[t,i]*obs2[t,j]
+        
+    for i in range(nbins):
+        if counts[i]>0:
+            corr[i,1] /= counts[i]
+
+    return corr
 
 if __name__ == '__main__':
     main()
