@@ -69,7 +69,7 @@ def main():
 
     elif quantity=='pressure':
         print('Computing pressure correlation function...')
-        p2q = sq = get_p2q(traj, nchunks=nchunks, qmax=np.pi)
+        p2q = get_p2q(traj, nchunks=nchunks, qmax=np.pi)
         print('Computed pressure correlation function.')
 
         outfile = '/'.join((myfile.split('/'))[:-1]) + '/pressure_corr_q.npz'
@@ -369,6 +369,7 @@ def get_p2q(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
     #### Chunk positions and pressures####
     pos_chunks = []
     pressure_chunks = []
+    pressure_abs_chunks = []
     #print(traj['pos'].shape)
     for n in range(nchunks):
         pos_chunks.append(traj['pos'][(n*seglen):((n+1)*seglen),:,:])
@@ -379,6 +380,7 @@ def get_p2q(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
         else:
             pchunk = -(traj['virial'][(n*seglen):((n+1)*seglen),:,0])
         pressure_chunks.append(pchunk)
+        pressure_abs_chunks.append(np.abs(pchunk))
 
     #### Compute allowed wavevectors ####
     dim=traj['dim']
@@ -390,11 +392,19 @@ def get_p2q(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
     #### Compute for each wavevector ####
     for n in range(nchunks):
         print('chunk', n)
-        q1d, sqavg, sqvals = get_p2q_range(pos_chunks[n], pressure_chunks[n], traj['dim'], traj['edges'], qvals)
-        the_dict['p2q_vals_%d' % n] = sqvals
-        the_dict['p2q_vals_1d_%d' % n] = sqavg
+        q1d, p2qavg, p2qvals = get_p2q_range(pos_chunks[n], pressure_chunks[n], traj['dim'], traj['edges'], qvals)
+        q1d_abs, pabs2qavg, pabs2qvals = get_p2q_range(pos_chunks[n], pressure_abs_chunks[n], traj['dim'], traj['edges'], qvals)
+        the_dict['p2q_vals_%d' % n] = p2qvals
+        the_dict['p2q_vals_1d_%d' % n] = p2qavg
+        the_dict['p2q_norm_vals_1d_%d' % n] = p2qavg/p2qavg[0]
+        the_dict['pabs2q_vals_%d' % n] = pabs2qvals
+        the_dict['pabs2q_vals_1d_%d' % n] = pabs2qavg
+        the_dict['pabs2q_norm_vals_1d_%d' % n] = pabs2qavg/pabs2qavg[0]
     the_dict['p2q_vals_nlast'] = sum([the_dict['p2q_vals_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
     the_dict['p2q_vals_1d_nlast'] = sum([the_dict['p2q_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
+    the_dict['p2q_norm_vals_1d_nlast'] = sum([the_dict['p2q_norm_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
+    the_dict['pabs2q_vals_1d_nlast'] = sum([the_dict['pabs2q_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
+    the_dict['pabs2q_norm_vals_1d_nlast'] = sum([the_dict['pabs2q_norm_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
     the_dict['qvals'] = qvals
     the_dict['qvals_1d'] = q1d
     the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
