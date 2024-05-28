@@ -4,6 +4,7 @@ import numpy as np
 import h5py
 import sys
 import numba
+import argparse
 
 import AnalysisTools.particle_io as io
 import AnalysisTools.measurement_tools as tools
@@ -13,42 +14,86 @@ import AnalysisTools.cell_list as cl
 def main():
 
     ### Load data ####
-    particle_file = sys.argv[1]
-    noise_file = sys.argv[2]
-    quantity = sys.argv[3] #density or pressure 
+    parser = argparse.ArgumentParser(description='Compute cross correlations.')
+    parser.add_argument('particle_file', help='Particle trajecrory.')
+    parser.add_argument('quantity', help='e.g. pressure or density')
+    
+    parser.add_argument('--noise_file', default='./noise_traj.h5', help='Noise trajectory.')
+    parser.add_argument('--do_spatial_corr', default=1, help='Do or do not do spatial correlation analysis.')
+
+    args = parser.parse_args()
+
+    particle_file = args.particle_file
+    quantity = args.quantity #density or pressure 
+    do_spatial_corr = int(args.do_spatial_corr)
+
+    if quantity=='density':
+        noise_file = args.noise_file
+        noise_traj = io.load_noise_traj(noise_file)
     
     particle_traj = io.load_traj(particle_file)
-    noise_traj = io.load_noise_traj(noise_file)
     if quantity=='density':
         corr, corr_sparse, noise_mean, noise_var, quantity_mean, quantity_var, quantity_mean_sparse, quantity_var_sparse = correlate_density(particle_traj, noise_traj, noise_file)
+
+        #Compute conditional average noise (given a particle is present)
+        noise_mag_given_particle_avg, noise_mag_avg = get_noise_avg_conditional(particle_traj, noise_traj)
+
         #### Output field properties to file in same directory as input file ####        
         outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation.npz' % quantity
-        np.savez(outfile, one_point_corr=corr, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_sparse=corr_sparse, one_point_corr_sparse_norm=corr_sparse/np.sqrt(noise_var*quantity_var_sparse), mean_density=quantity_mean, mean_density_sparse=quantity_mean_sparse, var_density=quantity_var, var_density_sparse=quantity_var_sparse, mean_noise=noise_mean, var_noise=noise_var)
+        np.savez(outfile, one_point_corr=corr, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_sparse=corr_sparse, one_point_corr_sparse_norm=corr_sparse/np.sqrt(noise_var*quantity_var_sparse), mean_density=quantity_mean, mean_density_sparse=quantity_mean_sparse, var_density=quantity_var, var_density_sparse=quantity_var_sparse, mean_noise=noise_mean, var_noise=noise_var, noise_mag_avg=noise_mag_avg, noise_mag_given_particle_avg=noise_mag_given_particle_avg, noise_mag_conditional_diff=noise_mag_given_particle_avg-noise_mag_avg)
+
     elif quantity=='pressure':
         print('Getting one-point correlation...')
         corr, corr_abs, noise_mean, noise_var, quantity_mean, quantity_var, quantity_mean_abs, quantity_var_abs = correlate_pressure(particle_traj)
 
-        print('Getting spatial cross-correlation...')
-        nframes = particle_traj['pos'].shape[0]
-        nskip = int(nframes*0.4)
-        pos = particle_traj['pos'][nskip:,...]
-        active_force = particle_traj['active_force'][nskip:,...]
-        active_mag = np.sqrt(active_force[...,0]**2+active_force[...,1]**2)
-        virial = particle_traj['virial'][nskip:,...]
-        pressure = -(virial[:,:,0]+virial[:,:,3])/2.0
-        pressure_abs = np.abs(pressure)
+        if do_spatial_corr==1:
+            print('Getting spatial cross-correlation...')
+            nframes = particle_traj['pos'].shape[0]
+            nskip = int(nframes*0.4)
+            pos = particle_traj['pos'][nskip:,...]
+            active_force = particle_traj['active_force'][nskip:,...]
+            active_mag = np.sqrt(active_force[...,0]**2+active_force[...,1]**2)
+            virial = particle_traj['virial'][nskip:,...]
+            pressure = -(virial[:,:,0]+virial[:,:,3])/2.0
+            pressure_abs = np.abs(pressure)
 
-        corr_r = get_spatial_cross_corr(active_mag, pressure, pos, particle_traj['edges'], particle_traj['dim'], rmax=30.0)
-        corr_r_abs = get_spatial_cross_corr(active_mag, pressure_abs, pos, particle_traj['edges'], particle_traj['dim'], rmax=30.0)
+            corr_r = get_spatial_cross_corr(active_mag, pressure, pos, particle_traj['edges'], particle_traj['dim'], rmax=30.0, nbins=300)
+            corr_r_reverse = get_spatial_cross_corr(pressure, active_mag, pos, particle_traj['edges'], particle_traj['dim'], rmax=30.0, nbins=300)
+            corr_r_abs = get_spatial_cross_corr(active_mag, pressure_abs, pos, particle_traj['edges'], particle_traj['dim'], rmax=30.0, nbins=300)
+            corr_r_abs_reverse = get_spatial_cross_corr(pressure_abs, active_mag, pos, particle_traj['edges'], particle_traj['dim'], rmax=30.0, nbins=300)
+
+            outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation_spatial.npz' % quantity
+            np.savez(outfile, spatial_corr=corr_r, spatial_corr_reverse=corr_r_reverse, spatial_corr_abs=corr_r_abs, spatial_corr_abs_reverse=corr_r_abs_reverse, spatial_corr_norm=(corr_r-noise_mean*quantity_mean)/np.sqrt(noise_var*quantity_var), spatial_corr_norm_reverse=(corr_r_reverse-noise_mean*quantity_mean)/np.sqrt(noise_var*quantity_var), spatial_corr_abs_norm=(corr_r_abs-noise_mean*quantity_mean_abs)/np.sqrt(noise_var*quantity_var_abs), spatial_corr_abs_norm_reverse=(corr_r_abs_reverse-noise_mean*quantity_mean_abs)/np.sqrt(noise_var*quantity_var_abs))
 
         #### Output field properties to file in same directory as input file ####        
         outfile = '/'.join((particle_file.split('/'))[:-1]) + '/%s_noise_correlation.npz' % quantity
-        np.savez(outfile, one_point_corr=corr, one_point_corr_abs=corr_abs, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_abs_norm=corr_abs/np.sqrt(noise_var*quantity_var_abs), mean_pressure=quantity_mean, var_pressure=quantity_var, mean_pressure_abs=quantity_mean_abs, var_pressure_abs=quantity_var_abs, mean_noise=noise_mean, var_noise=noise_var, spatial_corr=corr_r, spatial_corr_abs=corr_r_abs, spatial_corr_norm=(corr_r-noise_mean*quantity_mean)/np.sqrt(noise_var*quantity_var), spatial_corr_abs_norm=(corr_r_abs-noise_mean*quantity_mean_abs)/np.sqrt(noise_var*quantity_var_abs))
+        np.savez(outfile, one_point_corr=corr, one_point_corr_abs=corr_abs, one_point_corr_norm=corr/np.sqrt(noise_var*quantity_var), one_point_corr_abs_norm=corr_abs/np.sqrt(noise_var*quantity_var_abs), mean_pressure=quantity_mean, var_pressure=quantity_var, mean_pressure_abs=quantity_mean_abs, var_pressure_abs=quantity_var_abs, mean_noise=noise_mean, var_noise=noise_var)
     else:
         print('Error: quantity not yet supported.')
         exit()
 
-    
+
+def get_noise_avg_conditional(particle_traj, noise_traj):
+
+    #Skip first 40% of trajectory (consider it as equilibration)
+    nframes = particle_traj['pos'].shape[0]
+    nskip = int(nframes*0.4)
+
+    #Get magnitude of active force on each particle
+    active_force = particle_traj['active_force'][nskip:,:,:]
+    active_force_mag = np.sqrt(active_force[:,:,0]**2+active_force[:,:,1]**2)
+    noise_mag_given_particle_avg = np.average(active_force_mag)
+
+    #Get magnitude of noise field
+    if noise_traj['noise'].shape[0]==1:
+        noise_field = np.repeat(noise_traj['noise'], repeats=nframes-nskip, axis=0)
+    else:
+        noise_field = noise_traj['noise'][nskip:,:,:,:]
+    mag_field = np.sqrt(noise_field[:,:,:,0].transpose(0,2,1)**2+noise_field[:,:,:,1].transpose(0,2,1)**2)
+
+    noise_mag_avg = np.average(mag_field)
+
+    return noise_mag_given_particle_avg, noise_mag_avg
 
 def correlate_density(particle_traj, noise_traj, noise_file):
 
@@ -167,6 +212,25 @@ def get_density_field(nframes, nskip, pos, edges, mag_field, spacing, dims, do_s
                             density_field[t,xind,yind] = 1.0
 
     return density_field
+
+@numba.jit(nopython=True)
+def get_pressure_field(nframes, nskip, pressure, pos, edges, mag_field, spacing, dims):
+
+    halfdiam = 0.5#*2**(1.0/6.0) #half the hard sphere diameter
+    print(nframes-nskip)
+    pos = pos[nskip:,...]
+    scaled_pos_x = (pos[:,:,0]+edges[0]/2.0)/spacing[0]
+    scaled_pos_y = (pos[:,:,1]+edges[1]/2.0)/spacing[1]
+    scaled_pos_x_int = ((pos[:,:,0]+edges[0]/2.0)/spacing[0]).astype(np.int_)
+    scaled_pos_y_int = ((pos[:,:,1]+edges[1]/2.0)/spacing[1]).astype(np.int_)
+    print(scaled_pos_x.shape)
+    print(mag_field.shape)
+    pressure_field = np.zeros(mag_field.shape)
+    for t in range(nframes-nskip):
+        for i in range(pos.shape[1]):
+            pressure_field[t,scaled_pos_x_int[t,i],scaled_pos_y_int[t,i]] = pressure[t,i]
+
+    return pressure_field
 
 @numba.jit(nopython=True)
 def get_spatial_cross_corr(obs1, obs2, pos, edges, dim, rmax=50.0, nbins=100, use_cell_list=1):

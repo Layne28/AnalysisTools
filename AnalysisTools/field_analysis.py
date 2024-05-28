@@ -38,7 +38,7 @@ def get_divergence(dim, ncells, spacing, field):
            last dimension having length d (components of field)
     OUTPUT: Divergence field (d-dimensional numpy array)
     """
-    dim = len(field.shape)-1
+    #dim = len(field.shape)-1
 
     if dim==2:
         div = get_2d_divergence(ncells, spacing, field)
@@ -51,19 +51,20 @@ def get_divergence(dim, ncells, spacing, field):
 
 @numba.jit(nopython=True)
 def get_2d_divergence(ncells, spacing, field):
-    div = np.zeros((ncells[0],ncells[1]))
-    for i in range(ncells[0]):
-        for j in range(ncells[1]):
-            #Use central difference formula to compute derivatives
-            fxp = field[(i+1)%ncells[0]][j][0]
-            fxm = field[(i-1+ncells[0])%ncells[0]][j][0]
-            term1 = (fxp-fxm)/(2*spacing[0])
+    div = np.zeros((field.shape[0], ncells[0],ncells[1]), dtype=np.float64)
+    for t in range(field.shape[0]):
+        for i in range(ncells[0]):
+            for j in range(ncells[1]):
+                #Use central difference formula to compute derivatives
+                fxp = field[t][(i+1)%ncells[0]][j][0]
+                fxm = field[t][(i-1+ncells[0])%ncells[0]][j][0]
+                term1 = (fxp-fxm)/(2.0*spacing[0])
 
-            fyp = field[i][(j+1)%ncells[1]][1]
-            fym = field[i][(j-1+ncells[1])%ncells[1]][1]
-            term2 = (fyp-fym)/(2*spacing[1])
+                fyp = field[t][i][(j+1)%ncells[1]][1]
+                fym = field[t][i][(j-1+ncells[1])%ncells[1]][1]
+                term2 = (fyp-fym)/(2.0*spacing[1])
 
-            div[i][j] = term1 + term2
+                div[t][i][j] = term1 + term2
     return div
 
 @numba.jit(nopython=True)

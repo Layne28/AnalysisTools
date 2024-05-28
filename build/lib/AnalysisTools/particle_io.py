@@ -83,8 +83,10 @@ def load_traj(myfile):
                 potential_energy.append(np.sum(log['log/particles/md/pair/LJ/energies'][n,:]))
             elif 'log/particles/md/bond/Harmonic/energies' in log:
                 potential_energy.append(np.sum(log['log/particles/md/bond/Harmonic/energies'][n,:]))
-            else:
+            elif 'log/particles/md/bond/FENEWCA/energies' in log:
                 potential_energy.append(np.sum(log['log/particles/md/bond/FENEWCA/energies'][n,:]))
+            else:
+                potential_energy.append(0.0)
             image.append(frame.particles.image)
             if has_topology==1:
                 bonds.append(frame.bonds.group)
@@ -103,10 +105,13 @@ def load_traj(myfile):
         elif 'log/particles/md/bond/Harmonic/forces' in log:
             conservative_force = log['log/particles/md/bond/Harmonic/forces']
             virial = log['log/particles/md/bond/Harmonic/virials']
-        else:
+        elif 'log/particles/md/bond/FENEWCA/forces' in log:
             conservative_force = log['log/particles/md/bond/FENEWCA/forces']
             virial = log['log/particles/md/bond/FENEWCA/virials']
-        active_force = log['log/particles/ActiveNoiseForce/ActiveNoiseForce/forces']
+        else:
+            conservative_force = np.zeros((nframes, pos.shape[1], pos.shape[2]))
+            virial = np.zeros((nframes, pos.shape[1], 6))
+        active_force = log['log/particles/ActiveNoiseHoomd/ActiveNoiseForce/ActiveNoiseForce/forces']
         times = log['log/Time/time']
         vel = conservative_force + active_force #WARNING: assumes friction = 1!
         N = pos.shape[1]
