@@ -33,8 +33,8 @@ def main():
     seglen = traj['pos'].shape[0]//nchunks
     for n in range(nchunks):
         if use_one_only==1:
-            pos = traj['pos'][(n*seglen):((n+1)*seglen),0,:]
-            image = traj['image'][(n*seglen):((n+1)*seglen),0,:]
+            pos = traj['pos'][(n*seglen):((n+1)*seglen),0:1,:]
+            image = traj['image'][(n*seglen):((n+1)*seglen),0:1,:]
         else:
             pos = traj['pos'][(n*seglen):((n+1)*seglen),:,:]
             image = traj['image'][(n*seglen):((n+1)*seglen),:,:]
