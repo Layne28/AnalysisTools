@@ -4,34 +4,51 @@ import numpy as np
 import h5py
 import sys
 import numba
+import argparse
 
 import AnalysisTools.particle_io as particle_io
 import AnalysisTools.measurement_tools as measurement_tools
 
 def main():
+    
+    parser = argparse.ArgumentParser(description='Compute MSD.')
+    parser.add_argument('myfile', help='Trajectory file (.h5 or .gsd.)')
+    parser.add_argument('--tmax', default=100.0, help='Max. time to take MSD out to (must be smaller than time length of trajectory.)')
+    parser.add_argument('--nchunks', default=5, help='Number of chunks to divide trajectory into.')
+    parser.add_argument('--use_one_only', default=0, help='Select only one particle to follow for computing MSD')
+    
+    
+    args = parser.parse_args()
+    myfile = args.myfile
+    tmax = float(args.tmax)
+    nchunks = int(args.nchunks)
+    use_one_only = int(args.use_one_only)
 
     ### Load data ####
-    myfile = sys.argv[1] #Expects .h5 input file
     traj = particle_io.load_traj(myfile) #Extract data
-    nchunks = int(sys.argv[2])
-    tmax = 100.0
-    if len(sys.argv)>3:
-        tmax = float(sys.argv[3])
 
     #Split trajectory into chunks
     msd_dict = {}
     msd_dict['nchunks'] = nchunks
     seglen = traj['pos'].shape[0]//nchunks
     for n in range(nchunks):
-        pos = traj['pos'][(n*seglen):((n+1)*seglen),:,:]
-        image = traj['image'][(n*seglen):((n+1)*seglen),:,:]
+        if use_one_only==1:
+            pos = traj['pos'][(n*seglen):((n+1)*seglen),0,:]
+            image = traj['image'][(n*seglen):((n+1)*seglen),0,:]
+        else:
+            pos = traj['pos'][(n*seglen):((n+1)*seglen),:,:]
+            image = traj['image'][(n*seglen):((n+1)*seglen),:,:]
         times = traj['times'][(n*seglen):((n+1)*seglen)]
         msd = get_msd(pos,image,traj['edges'],times, tmax)
         msd_dict['msd_%d' % n] = msd[:,1]
         msd_dict['times'] = msd[:,0]
 
     #### Output MSD to file in same directory as input h5 file ####        
-    outfile = '/'.join((myfile.split('/'))[:-1]) + '/msd.npz'
+    if use_one_only==1:
+        numstring = 'one'
+    else:
+        numstring = 'all'
+    outfile = '/'.join((myfile.split('/'))[:-1]) + '/msd_tmax=%f_nchunks=%d_%s.npz' % (tmax, nchunks, numstring)
     np.savez(outfile, **msd_dict)
 
 @numba.jit(nopython=True)

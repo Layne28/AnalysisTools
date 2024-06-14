@@ -28,7 +28,7 @@ def main():
 
     args = parser.parse_args()
     myfile = args.file
-    rc = args.rc
+    rc = float(args.rc)
     nchunks = args.nchunks
 
     ### Load data ####

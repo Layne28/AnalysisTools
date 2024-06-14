@@ -111,7 +111,11 @@ def load_traj(myfile):
         else:
             conservative_force = np.zeros((nframes, pos.shape[1], pos.shape[2]))
             virial = np.zeros((nframes, pos.shape[1], 6))
-        active_force = log['log/particles/ActiveNoiseHoomd/ActiveNoiseForce/ActiveNoiseForce/forces']
+        if 'log/particles/ActiveNoiseHoomd/ActiveNoiseForce/ActiveNoiseForce/forces' in log:
+            active_force = log['log/particles/ActiveNoiseHoomd/ActiveNoiseForce/ActiveNoiseForce/forces']
+        else:
+            #backwards compatibility
+            active_force = log['log/particles/ActiveNoiseForce/ActiveNoiseForce/forces']
         times = log['log/Time/time']
         vel = conservative_force + active_force #WARNING: assumes friction = 1!
         N = pos.shape[1]
