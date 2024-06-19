@@ -163,12 +163,17 @@ def cluster_traj(traj,out_folder,rc):
     #Write data
     #np.savetxt(out_folder + '/cluster_hist_rc=%f.txt' % rc, np.c_[size_bins,cluster_size_hist,num_hist], header='bin size num')
 
+def get_avg_root_size(n, p):
+    return np.sum(np.sqrt(n)*p)
 
 def get_avg_size(n, p):
     return np.sum(n*p)
 
 def get_avg_mass_weighted_size(n, p):
     return np.sum(n**2*p)/np.sum(n*p)
+
+def get_avg_mass_weighted_root_size(n, p):
+    return np.sum(n**(3.0/2.0)*p)/np.sum(n*p)
 
 ##################
 #Cluster functions
