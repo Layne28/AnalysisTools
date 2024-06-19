@@ -5,6 +5,7 @@ import h5py
 import sys
 import numba
 import argparse
+import scipy
 
 import AnalysisTools.particle_io as particle_io
 import AnalysisTools.measurement_tools as measurement_tools
@@ -35,9 +36,11 @@ def main():
         if use_one_only==1:
             pos = traj['pos'][(n*seglen):((n+1)*seglen),0:1,:]
             image = traj['image'][(n*seglen):((n+1)*seglen),0:1,:]
+            print(pos.shape)
         else:
             pos = traj['pos'][(n*seglen):((n+1)*seglen),:,:]
             image = traj['image'][(n*seglen):((n+1)*seglen),:,:]
+            print(pos.shape)
         times = traj['times'][(n*seglen):((n+1)*seglen)]
         msd = get_msd(pos,image,traj['edges'],times, tmax)
         msd_dict['msd_%d' % n] = msd[:,1]
@@ -111,6 +114,59 @@ def unwrap(pos, image, edges, dim):
             upos[t][0][d] = pos[t][0][d] + image[t][0][d]*edges[d]
 
     return upos
+
+def fit_aoup(times, msd, dim):
+
+    """
+    Fit MSD to theoretical expression for self-propelled particle (AOUP)
+
+    INPUT: Times (numpy array),
+           MSD (numpy array),
+           spatial dimensionality (int)
+
+    OUTPUT: AOUP parameters (D, tau_p)
+    """
+
+    #discard t=0 to prevent NaN in log fit
+    if times[0]==0.0:
+        times=times[1:]
+        msd = msd[1:]
+
+    #Get AOUP functional form for given dimension
+    aoup_msd = aoup_msd_func_log(dim)
+
+    #Perform fit 
+    fit_params, pcov = scipy.optimize.curve_fit(aoup_msd, times, np.log(msd))
+
+    return fit_params
+
+def aoup_msd_func(dim):
+
+    """
+    Define theoretical AOUP function for a given spatial dimension
+
+    INPUT: dimensionality (int)
+    OUTPUT: AOUP function in dim-d
+    """
+
+    def aoup_msd(t, D, tau):
+        return 2*dim*D * (t + tau*(np.exp(-t/tau) - 1))
+
+    return aoup_msd
+
+def aoup_msd_func_log(dim):
+
+    """
+    Define log of theoretical AOUP function for a given spatial dimension
+
+    INPUT: dimensionality (int)
+    OUTPUT: AOUP function in dim-d
+    """
+
+    def aoup_msd_log(t, D, tau):
+        return np.log(2*dim*D * (t + tau*(np.exp(-t/tau) - 1)))
+
+    return aoup_msd_log
 
 if __name__ == '__main__':
     main()
