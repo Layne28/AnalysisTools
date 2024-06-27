@@ -333,5 +333,41 @@ def get_space_corr_noise(noise, spacing, rmax=20):
 
     real_corr /= (dim*nsteps)
     
+    if dim==1:
+        x = np.linspace(0,noise.shape[-1]*spacing[0], noise.shape[-1])
+        n = x.shape[0]
+        x[n//2 + 1:] = -np.flip(x[1:n//2])
+        r = np.abs(x)
+    elif dim==2:
+        x = np.linspace(0,noise.shape[1]*spacing[0], noise.shape[1])
+        nx = x.shape[0]
+        x[nx//2 + 1:] = -np.flip(x[1:nx//2])
+        y = np.linspace(0,noise.shape[2]*spacing[1], noise.shape[2])
+        ny = y.shape[0]
+        y[ny//2 + 1:] = -np.flip(y[1:ny//2])
+        xv, yv = np.meshgrid(x, y)
+        r = np.sqrt(xv**2+yv**2)
+    else:
+        x = np.linspace(0,noise.shape[1]*spacing[0], noise.shape[1])
+        nx = x.shape[0]
+        x[nx//2 + 1:] = -np.flip(x[1:nx//2])
+        y = np.linspace(0,noise.shape[2]*spacing[1], noise.shape[2])
+        ny = y.shape[0]
+        y[ny//2 + 1:] = -np.flip(y[1:ny//2])
+        z = np.linspace(0,noise.shape[3]*spacing[2], noise.shape[3])
+        nz = z.shape[0]
+        z[nz//2 + 1:] = -np.flip(z[1:nz//2])
+        xv, yv, zv = np.meshgrid(x, y, z)
+        r = np.sqrt(xv**2+yv**2+zv**2)
+    
+    rvals = np.unique(r.round(decimals=6))
+    radial_corr = np.zeros(rvals.shape)
+    print(rvals)
+    for i in range(rvals.shape[0]):
+        radial_corr[i] = np.mean(real_corr[np.abs(r-rvals[i])<1e-6])
+    print(radial_corr)
+    #print(np.argwhere(np.abs(r-0.501253)<1e-6))
+    #print(r[np.argwhere(np.abs(r-0.501253)<1e-6)])
+    #print([r[np.argwhere(np.abs(r-element)<1e-6)] for element in rvals])
 
-    return real_corr, spacing
+    return real_corr, r, radial_corr, rvals, spacing
