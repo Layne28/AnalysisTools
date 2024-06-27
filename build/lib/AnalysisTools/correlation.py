@@ -237,6 +237,7 @@ def get_corr_stddev(data, nskip=0):
 #Noise functions
 ###################################
 
+@numba.jit(nopython=True)
 def get_time_corr_noise(noise, times, tmax=20):
     
     """
@@ -273,28 +274,64 @@ def get_time_corr_noise(noise, times, tmax=20):
     
     for t in range(fmax):
         corr[t,0] = dt*t
-        if dim==1:
-            N = noise.shape[-1]
-            for i in range(N):
-                corr[t,1] += np.mean(noise[:-fmax,i]*noise[t:(-fmax+t),i])
-            corr[t,1] /= (N*dim)
-        elif dim==2:
-            Nx = noise.shape[1]
-            Ny = noise.shape[2]
-            for i in range(Nx):
-                for j in range(Ny):
-                    for mu in range(dim):
-                        corr[t,1] += np.mean(noise[:-fmax,i,j,mu]*noise[t:(-fmax+t),i,j,mu])
-            corr[t,1] /= (Nx*Ny*dim)
-        else:
-            Nx = noise.shape[1]
-            Ny = noise.shape[2]
-            Nz = noise.shape[3]
-            for i in range(Nx):
-                for j in range(Ny):
-                    for k in range(Nz):
-                        for mu in range(dim):
-                            corr[t,1] += np.mean(noise[:-fmax,i,j,k,mu]*noise[t:(-fmax+t),i,j,k,mu])
-            corr[t,1] /= (Nx*Ny*Nz*dim)
+        corr[t,1] += np.mean(noise[:-fmax,...]*noise[t:(-fmax+t),...])
 
     return corr
+
+def get_space_corr_noise(noise, spacing, rmax=20):
+    
+    """
+    Compute spatial correlation of noise trajectory.
+    
+    INPUT: Noise trajectory ((d+2)-dimensional numpy array, with
+           first dimension time (nframes),
+           next d dimensions {n_mu, mu=1,2,...,d},
+           and last dimension
+           d (components of field))
+    OUTPUT: Spatial correlation function of noise field (numpy array)
+    """
+    
+    dim = noise.shape[-1]
+    nsteps = noise.shape[0]
+        
+    if dim>3:
+        print('Error: dimension cannot be greater than 3!')
+        raise TypeError
+    
+    if dim==1:
+        Narr = np.array([noise.shape[1]])
+        fourier_corr = np.zeros(Narr[0]//2+1, dtype=np.complex64)
+        real_corr = np.zeros(Narr[0])
+    elif dim==2:
+        Narr = np.array([noise.shape[1],noise.shape[2]])
+        fourier_corr = np.zeros((Narr[0],Narr[1]//2+1), dtype=np.complex64)
+        real_corr = np.zeros((Narr[0], Narr[1]))
+    else:
+        Narr = np.array([noise.shape[1],noise.shape[2],noise.shape[3]])
+        fourier_corr = np.zeros((Narr[0],Narr[1],Narr[2]//2+1), dtype=np.complex64)
+        real_corr = np.zeros((Narr[0], Narr[1], Narr[2]))
+
+    for t in range(nsteps):
+        print(t)
+        for d in range(dim):
+            #Get fourier components of field
+            if dim==1:
+                fourier_noise = np.fft.rfft(noise[t,:], axis=0)
+                fourier_corr += fourier_noise.real**2 + fourier_noise.imag**2
+            elif dim==2:
+                fourier_noise = np.fft.rfft2(noise[t,...,d], axes=(0,1))
+                fourier_corr += fourier_noise.real**2 + fourier_noise.imag**2
+            else:
+                fourier_noise = np.fft.rfftn(noise[t,...,d], axes=(0,1,2))
+                fourier_corr += fourier_noise.real**2 + fourier_noise.imag**2
+        if dim==1:
+            real_corr += np.fft.irfft(fourier_corr, axis=0)
+        elif dim==2:
+            real_corr += np.fft.irfft2(fourier_corr, axes=(0,1))
+        else:
+            real_corr += np.fft.irfftn(fourier_corr, axes=(0,1,2))
+
+    real_corr /= (dim*nsteps)
+    
+
+    return real_corr, spacing

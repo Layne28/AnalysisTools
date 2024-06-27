@@ -18,14 +18,16 @@ def main():
     rms_noise = tools.get_rms_noise(traj['noise'])
     print('rms noise:', rms_noise)
     
+    print('Getting space correlation...')
+    rcorr, spacing = corr.get_space_corr_noise(traj['noise'], traj['spacing'])
+    
     print('Getting time correlation...')
-    print(traj['tau'])
     tcorr = corr.get_time_corr_noise(traj['noise'], traj['times'])
     print(tcorr)
     print('done')
 
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/noise_stats.npz'
-    np.savez(outfile, rms=rms_noise, tcorr=tcorr)
+    np.savez(outfile, rms=rms_noise, tcorr=tcorr, rcorr=rcorr, rspacing=spacing)
 
 if __name__ == '__main__':
     main()
