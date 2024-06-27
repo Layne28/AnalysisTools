@@ -157,7 +157,7 @@ def aoup_msd_func(dim):
 def aoup_msd_func_log(dim):
 
     """
-    Define theoretical AOUP function in log space for a given spatial dimension
+    Define log of theoretical AOUP function for a given spatial dimension
 
     INPUT: dimensionality (int)
     OUTPUT: AOUP function in dim-d

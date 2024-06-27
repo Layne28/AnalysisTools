@@ -164,7 +164,9 @@ def load_noise_traj(myfile):
     dim = ncells.shape[0]
 
     #noise data
-    times = np.array(traj['/noise/timestep'])
+    dt = np.array(traj['/parameters/dt'])
+    times = np.array(traj['/noise/timestep'])*dt
+    
     if dim==1:
         noise = np.zeros((times.shape[0],ncells[0],1))
         noise = np.array(traj['/noise/value/x'])

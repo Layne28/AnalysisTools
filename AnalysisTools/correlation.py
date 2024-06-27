@@ -232,3 +232,69 @@ def get_corr_stddev(data, nskip=0):
     stddev = np.sqrt(stddev)
 
     return stddev
+
+###################################
+#Noise functions
+###################################
+
+def get_time_corr_noise(noise, times, tmax=20):
+    
+    """
+    Compute time correlation of noise trajectory.
+    
+    INPUT: Noise trajectory ((d+2)-dimensional numpy array, with
+           first dimension time (nframes),
+           next d dimensions {n_mu, mu=1,2,...,d},
+           and last dimension
+           d (components of field))
+    OUTPUT: Time correlation function of noise field (numpy array)
+    """
+    
+    if len(noise.shape)==2:
+        dim = 1
+    else:
+        dim = noise.shape[-1]
+        
+    if dim>3:
+        print('Error: dimension cannot be greater than 3!')
+        raise TypeError
+    if times.shape[0]<2:
+        print('Error: not enough time to compute time correlations!')
+        raise TypeError
+
+    dt = times[1]-times[0]
+    #N = obs.shape[1]
+    print(dt)
+    fmax = int(tmax/dt) #max frame
+    if fmax>times.shape[0]:
+        fmax = times.shape[0]-1
+    print('fmax:', fmax)
+    corr = np.zeros((fmax,2))
+    
+    for t in range(fmax):
+        corr[t,0] = dt*t
+        if dim==1:
+            N = noise.shape[-1]
+            for i in range(N):
+                corr[t,1] += np.mean(noise[:-fmax,i]*noise[t:(-fmax+t),i])
+            corr[t,1] /= (N*dim)
+        elif dim==2:
+            Nx = noise.shape[1]
+            Ny = noise.shape[2]
+            for i in range(Nx):
+                for j in range(Ny):
+                    for mu in range(dim):
+                        corr[t,1] += np.mean(noise[:-fmax,i,j,mu]*noise[t:(-fmax+t),i,j,mu])
+            corr[t,1] /= (Nx*Ny*dim)
+        else:
+            Nx = noise.shape[1]
+            Ny = noise.shape[2]
+            Nz = noise.shape[3]
+            for i in range(Nx):
+                for j in range(Ny):
+                    for k in range(Nz):
+                        for mu in range(dim):
+                            corr[t,1] += np.mean(noise[:-fmax,i,j,k,mu]*noise[t:(-fmax+t),i,j,k,mu])
+            corr[t,1] /= (Nx*Ny*Nz*dim)
+
+    return corr
