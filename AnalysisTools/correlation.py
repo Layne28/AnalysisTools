@@ -362,12 +362,7 @@ def get_space_corr_noise(noise, spacing, rmax=20):
     
     rvals = np.unique(r.round(decimals=6))
     radial_corr = np.zeros(rvals.shape)
-    print(rvals)
     for i in range(rvals.shape[0]):
         radial_corr[i] = np.mean(real_corr[np.abs(r-rvals[i])<1e-6])
-    print(radial_corr)
-    #print(np.argwhere(np.abs(r-0.501253)<1e-6))
-    #print(r[np.argwhere(np.abs(r-0.501253)<1e-6)])
-    #print([r[np.argwhere(np.abs(r-element)<1e-6)] for element in rvals])
 
     return real_corr, r, radial_corr, rvals, spacing
