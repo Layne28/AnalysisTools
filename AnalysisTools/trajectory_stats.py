@@ -39,7 +39,9 @@ def main():
         filename = 'noise_traj.h5'
         dataset = args.quantity
     else:
-        filename = 'traj.h5'
+        #TODO: add option to specify h5 vs gsd
+        #filename = 'traj.h5'
+        filename = 'traj.gsd'
         dataset = args.quantity
 
     #Full trajectories are too big to load all at once -- deal with them separately
@@ -322,7 +324,7 @@ def get_trajectory_stats(basefolder, filename, dataset=None, subfolder='prod'):
 
     return stats
 
-def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod', nbins=50, nchunks=5):
+def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod', nbins=50, nchunks=5, nlast=3):
 
     """
     Compute histogram of data over trajectories
@@ -332,8 +334,13 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
            Optional: Name of dataset
            Optional: Name of subfolder within each "seed=*" folder to look in
            Optional: Number of bins
+           Optional: No. of chunks (from end of traj) to collect data from
     OUTPUT: Dictionary containing histogram of data
     """
+    
+    the_dict = {}
+    the_dict['nchunks'] = nchunks
+    the_dict['hist_nlast'] = None
 
     #Check that basefolder contains "seed=*"
     dirs = [d for d in os.listdir(basefolder) if os.path.isdir(os.path.join(basefolder, d)) and 'seed=' in d]
@@ -343,8 +350,8 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
     if dataset==None:
         raise Exception('Error: need to specify dataset to retrieve from h5 file. Exiting.')
 
-    if not filename.endswith('.h5'):
-        raise Exception('Error: file must be in hdf5 format. Exiting.')
+    if not (filename.endswith('.h5') or filename.endswith('gsd')):
+        raise Exception('Error: file must be in hdf5 or gsd format. Exiting.')
     
     #First compute upper and lower histogram limits
     llim = 0.0
@@ -360,7 +367,13 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
                 traj = io.load_noise_traj(thefile)
             else:
                 traj = io.load_traj(thefile)
-                data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
+                numlast = int(traj['pos'].shape[0]/nchunks*nlast)
+                if dataset=='strain':
+                    if traj['edges'].shape[0]<3:
+                        traj['edges'] = np.append(traj['edges'], 0.0)
+                    data = tools.get_strain_bonds(traj['pos'][-numlast:,:,:], traj['bonds'], traj['edges'], 1.0)
+                else:
+                    data = traj[dataset][-numlast:,:,:traj['dim']] #this will only work right now for per-particle quantities
             if filename=='noise_traj.h5':
                 min_curr = np.min(traj[dataset])
                 max_curr = np.max(traj[dataset])
@@ -395,7 +408,12 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
                 traj = io.load_noise_traj(thefile)
             else:
                 traj = io.load_traj(thefile)
-                data = traj[dataset][:,:,:traj['dim']] #this will only work right now for per-particle quantities
+                if dataset=='strain':
+                    if traj['edges'].shape[0]<3:
+                        traj['edges'] = np.append(traj['edges'], 0.0)
+                    data = tools.get_strain_bonds(traj['pos'][-numlast:,:,:], traj['bonds'], traj['edges'], 1.0)
+                else:
+                    data = traj[dataset][-numlast:,:,:traj['dim']] #this will only work right now for per-particle quantities
             
             #Compute histogram
             if filename=='noise_traj.h5':
@@ -414,9 +432,8 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
         bins = (bin_edges[:-1]+bin_edges[1:])/2
         hist = all_counts/(1.0*total_num)
             
-    the_dict = {}
     the_dict['bins'] = bins
-    the_dict['hist'] = hist
+    the_dict['hist_nlast'] = hist
 
     print(bins)
     print(hist)

@@ -4,6 +4,7 @@ import numpy as np
 import h5py
 import sys
 import numba
+import argparse
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -11,6 +12,72 @@ import matplotlib.pyplot as plt
 import AnalysisTools.particle_io as particle_io
 import AnalysisTools.measurement_tools as measurement_tools
 import AnalysisTools.cell_list as cl
+
+def main():
+    
+    ### Load data ####
+    parser = argparse.ArgumentParser(description='Compute correlation function.')
+    parser.add_argument('myfile', help='Input trajectory file.')
+    parser.add_argument('--quantity', default='velocity', help='velocity, stress, strain...')
+    parser.add_argument('--corrtype', default='time', help='"time" or "space"')
+    parser.add_argument('--nchunks', default=5, help='No. of trajectory chunks')
+    parser.add_argument('--nlast', default=3, help='No. of chunks to lump together for "equilibrated" average')
+    parser.add_argument('--tmax', default=50.0, help='Max time to compute time correlations')
+    parser.add_argument('--rmax', default=20.0, help='Max distance to compute spatial correlations')
+    
+    args = parser.parse_args()
+    myfile = args.myfile
+    traj = particle_io.load_traj(myfile)
+    nchunks = int(args.nchunks)
+    nlast = int(args.nlast)
+    tmax = float(args.tmax)
+    rmax = float(args.rmax)
+    corrtype = args.corrtype
+    quantity = args.quantity
+    
+    ### Compute correlation function ###
+    
+    if quantity=='strain':
+        print('not yet implemented')
+        exit()
+    elif quantity=='stress':
+        print('not yet implemented')
+        exit()
+    else:
+        if quantity=='velocity':
+            obs = traj['vel']
+        else:
+            obs = traj[quantity]
+    
+    nlaststeps = int(obs.shape[0]*nlast/nchunks)
+    obs = obs[-nlaststeps:,:,:]
+    
+    if corrtype == 'time':
+        corr = get_single_particle_time_corr(obs, traj['times'][-nlaststeps:], tmax)
+        outfile = '/'.join((myfile.split('/'))[:-1]) + ('/%s_time_corr.npz' % quantity)
+        print(outfile)
+        the_dict = {}
+        the_dict['times'] = corr[:,0]
+        the_dict['corr'] = corr[:,1]
+        the_dict['nchunks'] = nchunks
+        the_dict['nlast'] = nlast
+        np.savez(outfile, **the_dict)
+    elif corrtype == 'space':
+        get_single_particle_radial_corr(obs, traj['pos'], traj['edges'], traj['dim'], rmax=rmax)
+        outfile = '/'.join((myfile.split('/'))[:-1]) + ('/%s_spatial_corr.npz' % quantity)
+        print(outfile)
+        the_dict = {}
+        the_dict['distances'] = corr[:,0]
+        the_dict['corr'] = corr[:,1]
+        the_dict['nchunks'] = nchunks
+        the_dict['nlast'] = nlast
+        np.savez(outfile, **the_dict)
+    else:
+        print('Error: corrtype not recognized.')
+        exit()
+    
+    
+#### Methods ####    
 
 @numba.jit(nopython=True)
 def get_single_particle_time_corr(obs, times, tmax=5.0):
@@ -238,7 +305,7 @@ def get_corr_stddev(data, nskip=0):
 ###################################
 
 @numba.jit(nopython=True)
-def get_time_corr_noise(noise, times, tmax=20):
+def get_time_corr_noise(noise, times, tmax=100):
     
     """
     Compute time correlation of noise trajectory.
@@ -260,8 +327,9 @@ def get_time_corr_noise(noise, times, tmax=20):
         print('Error: dimension cannot be greater than 3!')
         raise TypeError
     if times.shape[0]<2:
-        print('Error: not enough time to compute time correlations!')
-        raise TypeError
+        print('Warning: not enough time to compute time correlations! Returning zero.')
+        return np.zeros((1, 2))
+        #raise TypeError
 
     dt = times[1]-times[0]
     #N = obs.shape[1]
@@ -362,12 +430,10 @@ def get_space_corr_noise(noise, spacing, rmax=20):
     
     rvals = np.unique(r.round(decimals=6))
     radial_corr = np.zeros(rvals.shape)
-    print(rvals)
     for i in range(rvals.shape[0]):
         radial_corr[i] = np.mean(real_corr[np.abs(r-rvals[i])<1e-6])
-    print(radial_corr)
-    #print(np.argwhere(np.abs(r-0.501253)<1e-6))
-    #print(r[np.argwhere(np.abs(r-0.501253)<1e-6)])
-    #print([r[np.argwhere(np.abs(r-element)<1e-6)] for element in rvals])
 
     return real_corr, r, radial_corr, rvals, spacing
+
+if __name__ == '__main__':
+    main()

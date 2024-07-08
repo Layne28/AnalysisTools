@@ -26,7 +26,7 @@ def main():
 
     ### Load data ####
     parser = argparse.ArgumentParser(description='Compute statistics over trajectories (either avg+stderr OR histogram OR CSD).')
-    parser.add_argument('myfile', help='Directory within which to look for trajectories w/ different seeds.')
+    parser.add_argument('myfile', help='Input trajectory file.')
     parser.add_argument('--quantity', default='density', help='density or pressure')
     parser.add_argument('--nchunks', default=5, help='No. of trajectory chunks')
 
