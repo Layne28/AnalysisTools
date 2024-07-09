@@ -38,11 +38,12 @@ def main():
     ### Compute correlation function ###
     
     if quantity=='strain':
-        print('not yet implemented')
-        exit()
+        obs = measurement_tools.get_strain_bonds(traj['pos'], traj['bonds'], traj['edges'], 1.0)
     elif quantity=='stress':
-        print('not yet implemented')
-        exit()
+        if traj['dim']==2:
+            obs = -(traj['virial'][:,:,0]+traj['virial'][:,:,3])/2.0
+        else:
+            obs = -(traj['virial'][:,:,0]+traj['virial'][:,:,3]+traj['virial'][:,:,5])/3.0
     else:
         if quantity=='velocity':
             obs = traj['vel']
@@ -63,7 +64,7 @@ def main():
         the_dict['nlast'] = nlast
         np.savez(outfile, **the_dict)
     elif corrtype == 'space':
-        get_single_particle_radial_corr(obs, traj['pos'], traj['edges'], traj['dim'], rmax=rmax)
+        corr = get_single_particle_radial_corr(obs, traj['pos'], traj['edges'], traj['dim'], rmax=rmax)
         outfile = '/'.join((myfile.split('/'))[:-1]) + ('/%s_spatial_corr.npz' % quantity)
         print(outfile)
         the_dict = {}
@@ -183,7 +184,7 @@ def get_single_particle_radial_corr(obs, pos, edges, dim, rmax=3.0, nbins=50, us
         print('Using cell list')
         ncell_arr, cellsize_arr, cell_neigh = cl.init_cell_list(edges, rmax, dim)
         for t in range(fmax):
-            if t%10==0:
+            if t%1==0:
                 print(t)
             #Create cell list for locating pairs of particles
             head, cell_list, cell_index = cl.create_cell_list(pos[t,:,:], edges, ncell_arr, cellsize_arr, dim)
