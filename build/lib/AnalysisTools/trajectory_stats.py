@@ -371,7 +371,14 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
                 if dataset=='strain':
                     if traj['edges'].shape[0]<3:
                         traj['edges'] = np.append(traj['edges'], 0.0)
-                    data = tools.get_strain_bonds(traj['pos'][-numlast:,:,:], traj['bonds'], traj['edges'], 1.0)
+                    strain = tools.get_strain_bonds(traj['pos'][-numlast:,:,:], traj['bonds'], traj['edges'], 1.0)
+                    data = strain[:,:,-1]
+                    midpts = strain[:,:,:-1]
+                elif dataset=='stress':
+                    if traj['dim']==2:
+                        data = -(traj['virial'][-numlast:,:,0]+traj['virial'][-numlast:,:,3])/2.0
+                    else:
+                        data = -(traj['virial'][-numlast:,:,0]+traj['virial'][-numlast:,:,3]+traj['virial'][-numlast:,:,5])/3.0
                 else:
                     data = traj[dataset][-numlast:,:,:traj['dim']] #this will only work right now for per-particle quantities
             if filename=='noise_traj.h5':
@@ -411,7 +418,14 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
                 if dataset=='strain':
                     if traj['edges'].shape[0]<3:
                         traj['edges'] = np.append(traj['edges'], 0.0)
-                    data = tools.get_strain_bonds(traj['pos'][-numlast:,:,:], traj['bonds'], traj['edges'], 1.0)
+                    strain = tools.get_strain_bonds(traj['pos'][-numlast:,:,:], traj['bonds'], traj['edges'], 1.0)
+                    data = strain[:,:,-1]
+                    midpts = strain[:,:,:-1]
+                elif dataset=='stress':
+                    if traj['dim']==2:
+                        data = -(traj['virial'][-numlast:,:,0]+traj['virial'][-numlast:,:,3])/2.0
+                    else:
+                        data = -(traj['virial'][-numlast:,:,0]+traj['virial'][-numlast:,:,3]+traj['virial'][-numlast:,:,5])/3.0
                 else:
                     data = traj[dataset][-numlast:,:,:traj['dim']] #this will only work right now for per-particle quantities
             

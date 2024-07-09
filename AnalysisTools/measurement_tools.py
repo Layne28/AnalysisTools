@@ -91,6 +91,7 @@ def get_strain_bonds(pos, bonds, edges, leq):
            (containing indices of 2 participating atoms), array of periodic box
            dimensions, and equilibrium bond length.
     OUTPUT: Strain of each bond (numpy array.)
+            Midpoint of each bond (numpy array.)
     """
 
     #Check whether connectivity changes
@@ -99,7 +100,9 @@ def get_strain_bonds(pos, bonds, edges, leq):
         nframes = pos.shape[0]
         N = pos.shape[1]
         nbonds = bonds.shape[0]
-        strain_arr = np.zeros((nframes, nbonds))
+        #strain_arr = np.zeros((nframes, nbonds))
+        #midpt_arr = np.zeros((nframes, nbonds, pos.shape[-1]))
+        strain_arr = np.zeros((nframes, nbonds, pos.shape[-1]+1))
 
         for t in range(nframes):
             for i in range(nbonds):
@@ -109,7 +112,12 @@ def get_strain_bonds(pos, bonds, edges, leq):
                 if la.norm(pos1-pos2)>2:
                     print('Error!!')
                 strain = la.norm(min_disp_vec)-leq
-                strain_arr[t][i] = strain
+                #strain_arr[t][i] = strain
+                #midpt_arr[t,i,:] = pos[t,b[0],:]-min_disp_vec/2.0
+                strain_arr[t,i,-1] = strain
+                strain_arr[t,i,:-1] = pos[t,b[0],:]-min_disp_vec/2.0
+            #midpt_arr[t,:,:] = apply_pbc(midpt_arr[t,:,:], edges)
+            strain_arr[t,:,:-1] = apply_pbc(strain_arr[t,:,:-1], edges)
         return strain_arr
 
     elif len(bonds.shape)==3: #Connectivity changes from frame to frame
@@ -117,7 +125,7 @@ def get_strain_bonds(pos, bonds, edges, leq):
         nframes = pos.shape[0]
         N = pos.shape[1]
         nbonds = bonds.shape[1]
-        strain_arr = np.zeros((nframes, nbonds))
+        strain_arr = np.zeros((nframes, nbonds, pos.shape[-1]+1))
 
         for t in range(nframes):
             for i in range(nbonds):
@@ -129,7 +137,12 @@ def get_strain_bonds(pos, bonds, edges, leq):
                 strain = la.norm(min_disp_vec)-leq
                 if la.norm(pos1-pos2)<1e-8: # (0,0 entries are given a "flag" to ignore)
                     strain = 1e4
-                strain_arr[t][i] = strain
+                #strain_arr[t][i] = strain
+                #midpt_arr[t,i,:] = pos[t,b[0],:]-min_disp_vec/2.0
+                strain_arr[t,i,-1] = strain
+                strain_arr[t,i,:-1] = pos[t,b[0],:]-min_disp_vec/2.0
+            #midpt_arr[t,:,:] = apply_pbc(midpt_arr[t,:,:], edges)
+            strain_arr[t,:,:-1] = apply_pbc(strain_arr[t,:,:-1], edges)
         return strain_arr
 
     else:

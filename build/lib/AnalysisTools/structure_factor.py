@@ -27,7 +27,7 @@ def main():
     ### Load data ####
     parser = argparse.ArgumentParser(description='Compute statistics over trajectories (either avg+stderr OR histogram OR CSD).')
     parser.add_argument('myfile', help='Input trajectory file.')
-    parser.add_argument('--quantity', default='density', help='density or pressure')
+    parser.add_argument('--quantity', default='density', help='density or pressure or strain')
     parser.add_argument('--nchunks', default=5, help='No. of trajectory chunks')
 
     args = parser.parse_args()
@@ -75,6 +75,15 @@ def main():
         outfile = '/'.join((myfile.split('/'))[:-1]) + '/pressure_corr_q.npz'
         print(outfile)
         np.savez(outfile, **p2q)
+        
+    elif quantity=='strain':
+        print('Computing strain correlation function...')
+        str2q = get_str2q(traj, nchunks=nchunks, qmax=np.pi)
+        print('Computed strain correlation function.')
+
+        outfile = '/'.join((myfile.split('/'))[:-1]) + '/strain_corr_q.npz'
+        print(outfile)
+        np.savez(outfile, **str2q)
 
 #### Methods ####
 
@@ -405,6 +414,57 @@ def get_p2q(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
     the_dict['p2q_norm_vals_1d_nlast'] = sum([the_dict['p2q_norm_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
     the_dict['pabs2q_vals_1d_nlast'] = sum([the_dict['pabs2q_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
     the_dict['pabs2q_norm_vals_1d_nlast'] = sum([the_dict['pabs2q_norm_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
+    the_dict['qvals'] = qvals
+    the_dict['qvals_1d'] = q1d
+    the_dict['qmag'] = np.linalg.norm(qvals, axis=1)
+
+    return the_dict
+
+def get_str2q(traj, nchunks=5, nlast=3, spacing=0.0, qmax=np.pi):
+
+    """
+    Compute strain "structure factor" (correlation function).
+
+    INPUT: Particle trajectory (dictionary),
+           number of chunks to divide trajectory into,
+           number of chunks starting from end of trajectory to average over,
+           spacing in q space,
+           max q value
+    OUTPUT: Dictionary containing <s(q)^2> for each chunk,
+            also <s(q)^2> averaged over last nlast chunks
+    """
+
+    the_dict = {}
+    the_dict['nchunks'] = nchunks
+    the_dict['nlast'] = nlast
+    seglen = traj['pos'].shape[0]//nchunks
+
+    #### Chunk positions and pressures####
+    pos_chunks = []
+    strain_chunks = []
+    #print(traj['pos'].shape)
+    for n in range(nchunks):
+        strain_arr = measurement_tools.get_strain_bonds(traj['pos'][(n*seglen):((n+1)*seglen),:,:], traj['bonds'][(n*seglen):((n+1)*seglen),:,:], traj['edges'], 1.0)
+        pos_chunks.append(strain_arr[:,:,:-1])
+        strain_chunks.append(strain_arr[:,:,-1])
+
+    #### Compute allowed wavevectors ####
+    dim=traj['dim']
+    if spacing==0.0:
+        spacing = 2*np.pi/(np.max(traj['edges'])) #spacing
+        
+    qvals = get_allowed_q(qmax, spacing, dim)
+
+    #### Compute for each wavevector ####
+    for n in range(nchunks):
+        print('chunk', n)
+        q1d, str2qavg, str2qvals = get_p2q_range(pos_chunks[n], strain_chunks[n], traj['dim'], traj['edges'], qvals)
+        the_dict['str2q_vals_%d' % n] = str2qvals
+        the_dict['str2q_vals_1d_%d' % n] = str2qavg
+        the_dict['str2q_norm_vals_1d_%d' % n] = str2qavg/str2qavg[0]
+    the_dict['str2q_vals_nlast'] = sum([the_dict['str2q_vals_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
+    the_dict['str2q_vals_1d_nlast'] = sum([the_dict['str2q_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
+    the_dict['str2q_norm_vals_1d_nlast'] = sum([the_dict['str2q_norm_vals_1d_%d' % n] for n in range(nchunks-nlast, nchunks)])/nlast
     the_dict['qvals'] = qvals
     the_dict['qvals_1d'] = q1d
     the_dict['qmag'] = np.linalg.norm(qvals, axis=1)

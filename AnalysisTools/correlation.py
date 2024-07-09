@@ -38,7 +38,12 @@ def main():
     ### Compute correlation function ###
     
     if quantity=='strain':
-        obs = measurement_tools.get_strain_bonds(traj['pos'], traj['bonds'], traj['edges'], 1.0)
+        arr = measurement_tools.get_strain_bonds(traj['pos'], traj['bonds'], traj['edges'], 1.0)
+        print(arr.shape)
+        obs = arr[:,:,-1]
+        obs = obs[...,np.newaxis]
+        print(obs.shape)
+        midpts = arr[:,:,:-1]
     elif quantity=='stress':
         if traj['dim']==2:
             obs = -(traj['virial'][:,:,0]+traj['virial'][:,:,3])/2.0
@@ -51,7 +56,7 @@ def main():
             obs = traj[quantity]
     
     nlaststeps = int(obs.shape[0]*nlast/nchunks)
-    obs = obs[-nlaststeps:,:,:]
+    obs = obs[-nlaststeps:,...]
     
     if corrtype == 'time':
         corr = get_single_particle_time_corr(obs, traj['times'][-nlaststeps:], tmax)
@@ -101,7 +106,11 @@ def get_single_particle_time_corr(obs, times, tmax=5.0):
 
     dt = times[1]-times[0]
     N = obs.shape[1]
-    dim = obs.shape[2]
+    print(obs.shape)
+    if len(obs.shape)>2:
+        dim = obs.shape[2]
+    else:
+        dim=1
     fmax = int(tmax/dt) #max frame
     if fmax>times.shape[0]:
         fmax = times.shape[0]-1
@@ -110,8 +119,11 @@ def get_single_particle_time_corr(obs, times, tmax=5.0):
     for t in range(fmax):
         corr[t,0] = dt*t
         for i in range(N):
-            for mu in range(dim):
-                corr[t,1] += np.mean(obs[:-fmax,i,mu]*obs[t:(-fmax+t),i,mu])
+            if dim>1:
+                for mu in range(dim):
+                    corr[t,1] += np.mean(obs[:-fmax,i,mu]*obs[t:(-fmax+t),i,mu])
+            else:
+                corr[t,1] += np.mean(obs[:-fmax,i]*obs[t:(-fmax+t),i])
         corr[t,1] /= (N*dim)
 
     return corr
