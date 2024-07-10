@@ -8,6 +8,7 @@ AnalysisTools/energy.py
 AnalysisTools/field_analysis.py
 AnalysisTools/field_particle_correlation.py
 AnalysisTools/histogram.py
+AnalysisTools/inverse_ft.py
 AnalysisTools/measurement_tools.py
 AnalysisTools/msd.py
 AnalysisTools/noise_stats.py

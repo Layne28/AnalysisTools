@@ -69,7 +69,10 @@ def main():
         the_dict['nlast'] = nlast
         np.savez(outfile, **the_dict)
     elif corrtype == 'space':
-        corr = get_single_particle_radial_corr(obs, traj['pos'], traj['edges'], traj['dim'], rmax=rmax)
+        if quantity=='strain':
+            corr = get_single_particle_radial_corr(obs, midpts, traj['edges'], traj['dim'], rmax=rmax)
+        else:
+            corr = get_single_particle_radial_corr(obs, traj['pos'], traj['edges'], traj['dim'], rmax=rmax)
         outfile = '/'.join((myfile.split('/'))[:-1]) + ('/%s_spatial_corr.npz' % quantity)
         print(outfile)
         the_dict = {}

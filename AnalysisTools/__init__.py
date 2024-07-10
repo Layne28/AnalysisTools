@@ -12,4 +12,4 @@ from . import msd
 from . import noise_stats
 from . import trajectory_stats
 
-__all__ = ["particle_io", "measurement_tools", "structure_factor", "cell_list", "cluster", "correlation", "energy", "field_analysis", "field_particle_correlation", "histogram", "msd", "noise_stats", "trajectory_stats"]
+__all__ = ["particle_io", "measurement_tools", "structure_factor", "cell_list", "cluster", "correlation", "energy", "field_analysis", "field_particle_correlation", "histogram", "msd", "noise_stats", "trajectory_stats", "inverse_ft"]
