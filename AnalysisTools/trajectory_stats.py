@@ -65,7 +65,7 @@ def main():
             mystats = get_trajectory_stats(basefolder, filename, dataset=dataset, subfolder=subfolder)
             np.savez(basefolder + '/' + args.quantity + '_avg.npz', **mystats)
         elif args.stats_type=='histogram':
-            myhisto = get_trajectory_histogram(basefolder, filename, dataset=dataset, subfolder=subfolder)
+            myhisto = get_trajectory_histogram(basefolder, filename, dataset=dataset, subfolder=subfolder, max_num_traj=int(args.max_num_traj))
             np.savez(basefolder + '/' + args.quantity + '_histo.npz', **myhisto)
 
 def get_trajectory_data(basefolder, filename, dataset=None, subfolder='prod', max_num_traj=1000):
@@ -203,6 +203,7 @@ def get_postprocessed_stats(data_list):
     """
 
     avg = get_postprocessed_avg(data_list)
+    #print(avg)
     stderr = get_postprocessed_stderr(data_list)
     keys = avg.keys()
     stats = {}
@@ -213,7 +214,7 @@ def get_postprocessed_stats(data_list):
 
     return stats
 
-def get_postprocessed_histogram(data_list, dataset):
+def get_postprocessed_histogram(data_list, dataset, max_num_traj):
 
     """
     Compute histogram of data over postprocessed trajectories
@@ -223,6 +224,11 @@ def get_postprocessed_histogram(data_list, dataset):
     """
     
     all_data = np.array([])
+    def seedIndex(val):
+        return int((val.split('='))[-1])
+    dirs.sort(key=seedIndex)
+    #print(dirs)
+    dirs = dirs[:max_num_traj]
     for data in data_list:
         all_data = np.append(all_data, data[dataset])
     myhisto = hist_tools.get_histogram(all_data,nskip=0,nchunks=1)
@@ -324,7 +330,7 @@ def get_trajectory_stats(basefolder, filename, dataset=None, subfolder='prod'):
 
     return stats
 
-def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod', nbins=50, nchunks=5, nlast=3):
+def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod', nbins=50, nchunks=5, nlast=3, max_num_traj=1000):
 
     """
     Compute histogram of data over trajectories
@@ -344,6 +350,11 @@ def get_trajectory_histogram(basefolder, filename, dataset=None, subfolder='prod
 
     #Check that basefolder contains "seed=*"
     dirs = [d for d in os.listdir(basefolder) if os.path.isdir(os.path.join(basefolder, d)) and 'seed=' in d]
+    def seedIndex(val):
+        return int((val.split('='))[-1])
+    dirs.sort(key=seedIndex)
+    #print(dirs)
+    dirs = dirs[:max_num_traj]
     if len(dirs)==0:
         raise Exception('Error: base folder does not contain seed subdirectories! Exiting.')
     
@@ -466,28 +477,44 @@ def get_postprocessed_csd(data_list, nlast=3):
     nchunks = data_list[0]['nchunks']
     the_dict = {}
     the_dict['bins'] = data_list[0]['bins_0']
+    the_dict['largest_bins'] = data_list[0]['largest_bins_0']
     the_dict['nchunks'] = nchunks
     the_dict['hist_nlast'] = None
+    the_dict['largest_hist_nlast'] = None
     for n in range(nchunks):
         the_dict['hist_%d' % n] = None
+        the_dict['largest_hist_%d' % n] = None
         for t in range(len(data_list)):
             hist = data_list[t]['hist_%d' % n]
+            largest_hist = data_list[t]['largest_hist_%d' % n]
             #print(hist)
             
             if the_dict['hist_%d' % n] is None:
                 the_dict['hist_%d' % n] = hist
             else:
                 the_dict['hist_%d' % n] += hist
+                
+            if the_dict['largest_hist_%d' % n] is None:
+                the_dict['largest_hist_%d' % n] = largest_hist
+            else:
+                the_dict['largest_hist_%d' % n] += largest_hist
 
             if n>=(nchunks-nlast):
                 if the_dict['hist_nlast'] is None:
                     the_dict['hist_nlast'] = hist
                 else:
                     the_dict['hist_nlast'] += hist
+                    
+                if the_dict['largest_hist_nlast'] is None:
+                    the_dict['largest_hist_nlast'] = largest_hist
+                else:
+                    the_dict['largest_hist_nlast'] += largest_hist
         #normalize counts to probability
         the_dict['hist_%d' % n] = the_dict['hist_%d' % n]/np.sum(the_dict['hist_%d' % n])
+        the_dict['largest_hist_%d' % n] = the_dict['largest_hist_%d' % n]/np.sum(the_dict['largest_hist_%d' % n])
         #print(the_dict['hist_%d' % n])
     the_dict['hist_nlast'] = the_dict['hist_nlast']/np.sum(the_dict['hist_nlast'])
+    the_dict['largest_hist_nlast'] = the_dict['largest_hist_nlast']/np.sum(the_dict['largest_hist_nlast'])
     return the_dict
 
 if __name__ == '__main__':

@@ -49,6 +49,7 @@ def main():
             obs = -(traj['virial'][:,:,0]+traj['virial'][:,:,3])/2.0
         else:
             obs = -(traj['virial'][:,:,0]+traj['virial'][:,:,3]+traj['virial'][:,:,5])/3.0
+        obs = obs[...,np.newaxis]
     else:
         if quantity=='velocity':
             obs = traj['vel']
@@ -60,6 +61,7 @@ def main():
     
     if corrtype == 'time':
         corr = get_single_particle_time_corr(obs, traj['times'][-nlaststeps:], tmax)
+        print(corr[:,1]/corr[0,1])
         outfile = '/'.join((myfile.split('/'))[:-1]) + ('/%s_time_corr.npz' % quantity)
         print(outfile)
         the_dict = {}
