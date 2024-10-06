@@ -25,23 +25,32 @@ def main():
     parser = argparse.ArgumentParser(description='Compute statistics over trajectories (either avg+stderr OR histogram OR CSD).')
     parser.add_argument('myfile', help='Input trajectory file.')
     parser.add_argument('--spacing', default='0.5', help='spacing in real space')
-    parser.add_argument('--maxr', default='30.0', help='max distance to compute correlation')
+    parser.add_argument('--rmax', default='30.0', help='max distance to compute correlation')
 
     args = parser.parse_args()
     myfile = args.myfile #Expects .npz input file
     data = np.load(myfile) #Extract data
     print(data)
-    spacing = args.spacing
-    maxr = args.maxr
+    spacing = float(args.spacing)
+    rmax = float(args.rmax)
     
     sqvals = 0.0
-    if '/sq' in myfile:
-        sqvals = data['sq_vals_1d_nlast']
-    elif '/p2q' in myfile:
-        sqvals = data['p2q_vals_1d_nlast']
-    elif '/str2q' in myfile:
-        sqvals = data['str2q_vals_1d_nlast']
-    qvals = data['qvals']
+    if 'avg' in myfile:
+        if '/sq' in myfile:
+            sqvals = data['sq_vals_1d_nlast_avg']
+        elif '/pressure' in myfile:
+            sqvals = data['p2q_vals_1d_nlast_avg']
+        elif '/strain' in myfile:
+            sqvals = data['str2q_vals_1d_nlast_avg']
+        qvals = data['qvals_avg']
+    else:
+        if '/sq' in myfile:
+            sqvals = data['sq_vals_1d_nlast']
+        elif '/pressure' in myfile:
+            sqvals = data['p2q_vals_1d_nlast']
+        elif '/strain' in myfile:
+            sqvals = data['str2q_vals_1d_nlast']
+        qvals = data['qvals']
     
     print(sqvals)
     print(qvals)
@@ -49,7 +58,7 @@ def main():
         print(qvals[i,:])
     
     print('Computing inverse transform...')
-    cr = compute_inverse_correlation(sqvals, qvals, 2, spacing=spacing, maxr=maxr)
+    cr = compute_inverse_correlation(sqvals, qvals, 2, spacing=spacing, rmax=rmax)
     print('Computed inverse transform.')
 
     #### Output C(r) to file in same directory as input S(q) file ####        
@@ -67,12 +76,12 @@ def compute_inverse_correlation(sqvals, qvals, dim, spacing=0.5, rmax=30.0):
     
     rvals = get_allowed_r(rmax, spacing, dim)
     
-    get_inverse_range(sqvals, qvals, dim, rvals)
+    r1d, cravg, crvals = get_inverse_range(sqvals, qvals, dim, rvals)
     
-    the_dict['corr'] = np.zeros(10)
-    the_dict['rvals'] = np.zeros(10)
-    the_dict['corr_1d'] = np.zeros(10)
-    the_dict['rvals_1d'] = np.zeros(10)
+    the_dict['corr'] = crvals
+    the_dict['rvals'] = rvals
+    the_dict['corr_1d'] = cravg
+    the_dict['rvals_1d'] = r1d
     
     return the_dict
 
@@ -114,9 +123,9 @@ def get_single_point_cr(sqvals, qvals, dim, r):
     rho_real = 0
     rho_imag = 0
     for i in range(N):
-        rho_real += np.cos(-qvals[0]*r[0]-qvals[1]*r[1])
-        rho_imag += np.sin(-qvals[0]*r[0]-qvals[1]*r[1])
-    cr = rho_real**2 + rho_imag**2
+        rho_real += np.cos(-qvals[i,0]*r[0]-qvals[i,1]*r[1])*sqvals[i]
+        rho_imag += np.sin(-qvals[i,0]*r[0]-qvals[i,1]*r[1])*sqvals[i]
+    cr = rho_real#**2 + rho_imag**2
     cr = cr/N
     
     return cr

@@ -34,14 +34,12 @@ def main():
     nchunks = args.nchunks
 
     ### Load data ####
-    traj = io.load_traj(myfile) #Extract data
-
     out_folder = '/'.join((myfile.split('/'))[:-1])
 
     #Do clustering if files don't already exist
-    #if not(os.path.isfile(out_folder + '/clusters_rc=%f.h5' % rc)):
-    cluster_traj(traj,out_folder,rc)
-    #cluster_traj_final(traj,out_folder,rc)
+    if not(os.path.isfile(out_folder + '/clusters_rc=%f.h5' % rc)):
+        traj = io.load_traj(myfile) #Extract data
+        cluster_traj(traj,out_folder,rc)
 
     #Get CSD
     csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0)
@@ -64,14 +62,21 @@ def get_csd(cluster_traj_name, nchunks=5, nskip=0):
     N = cluster_ids.shape[1]
     num_clusters = np.zeros(traj_length)
     cluster_sizes = []
+    largest_cluster_sizes = []
 
     #Count no. of clusters of different sizes
+    #also keep track of largest cluster size
     for t in range(traj_length):
 
         cluster_id = cluster_ids[t,:]
         num_clusters[t] = np.max(cluster_id)
         unique, counts = np.unique(cluster_id, return_counts=True)
         cluster_sizes.append(counts)
+        largest_cluster_sizes.append(np.max(counts))
+        if t==traj_length-1:
+            print(unique)
+            print(counts)
+    print(largest_cluster_sizes)
 
     #Divide cluster sizes into chunks
     the_dict = {}
@@ -82,19 +87,34 @@ def get_csd(cluster_traj_name, nchunks=5, nskip=0):
         for n in range(nchunks):
             
             cluster_chunk = np.concatenate(cluster_sizes[(n*seglen):((n+1)*seglen)]).ravel()
+            largest_cluster_chunk = np.array(largest_cluster_sizes[(n*seglen):((n+1)*seglen)])
             hist, bin_edges = np.histogram(cluster_chunk, np.arange(0,N+2,1)-0.5, density=True)
             bins = (bin_edges[:-1]+bin_edges[1:])/2
+            
+            largest_hist, largest_bin_edges = np.histogram(largest_cluster_chunk, np.arange(0,N+2,1)-0.5, density=True)
+            largest_bins = (largest_bin_edges[:-1]+largest_bin_edges[1:])/2
+            
 
             the_dict['bins_%d' % n] = bins
             the_dict['hist_%d' % n] = hist
+            
+            the_dict['largest_bins_%d' % n] = largest_bins
+            the_dict['largest_hist_%d' % n] = largest_hist
     else:
         the_dict['nchunks'] = 1
         cluster_chunk = np.concatenate(cluster_sizes).ravel()
+        largest_cluster_chunk = np.array(largest_cluster_sizes)
         hist, bin_edges = np.histogram(cluster_chunk, np.arange(0,N+2,1)-0.5, density=False)
         bins = (bin_edges[:-1]+bin_edges[1:])/2
+        
+        largest_hist, largest_bin_edges = np.histogram(largest_cluster_chunk, np.arange(0,N+2,1)-0.5, density=True)
+        largest_bins = (largest_bin_edges[:-1]+largest_bin_edges[1:])/2
 
         the_dict['bins_0'] = bins
         the_dict['hist_0'] = hist
+        
+        the_dict['largest_bins_0'] = largest_bins
+        the_dict['largest_hist_0'] = largest_hist
 
     the_dict['avg_hist'] = histo.get_hist_avg(the_dict, nskip=nskip)
     the_dict['bins'] = bins
