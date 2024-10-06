@@ -21,6 +21,8 @@ import AnalysisTools.histogram as histo
 
 def main():
 
+    sys.setrecursionlimit(25000) #allow more recursion
+
     parser = argparse.ArgumentParser(description='Cluster particles in trajectory and compute CSD.')
     parser.add_argument('file', help='Trajectory file (h5md format).')
     parser.add_argument('--rc', default=1.5, help='Cutoff distance for defining cluster.')
@@ -39,6 +41,7 @@ def main():
     #Do clustering if files don't already exist
     #if not(os.path.isfile(out_folder + '/clusters_rc=%f.h5' % rc)):
     cluster_traj(traj,out_folder,rc)
+    #cluster_traj_final(traj,out_folder,rc)
 
     #Get CSD
     csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0)
@@ -104,6 +107,49 @@ def get_csd(cluster_traj_name, nchunks=5, nskip=0):
 ##################
 #Cluster an input trajectory
 ##################
+
+#Just cluster final frame
+def cluster_traj_final(traj,out_folder,rc):
+
+    faulthandler.enable()
+
+    #Initialize data containers
+    cluster_sizes = [] #number of nodes in clusters
+    cluster_areas = [] #number of surface-exposed nodes in clusters
+
+    #Get information from trajectory
+    traj_length = traj['times'].shape[0]
+    num_clusters = np.zeros(traj_length)
+
+    #Initialize cell list
+    print("Initializing cell list parameters...")
+    #ncell_x, ncell_y, cellsize_x, cellsize_y, cell_neigh = init_cell_list(traj['edges'], 2.5)
+    ncell_arr, cellsize_arr, cell_neigh = cl.init_cell_list(traj['edges'], 2.5, traj['dim'])
+    print("Done.")
+
+    #Create file for dumping clusters
+    cluster_file = h5py.File(out_folder + '/clusters_rc=%f.h5' % rc, 'w')
+
+    #if t%1000==0:
+    #    print('frame ', t)
+
+    print(traj['times'][-1], np.max(traj['pos'][-1,:,:]))
+    #Create cell list for locating pairs of particles
+    pos = tools.apply_pbc(traj['pos'][-1,:,:], traj['edges'])
+    #print(np.max(pos), np.min(pos))
+    head, cell_list, cell_index = cl.create_cell_list(pos, traj['edges'], ncell_arr, cellsize_arr, traj['dim'])
+
+    cluster_id = get_clusters(pos, traj['edges'][:(traj['dim'])], head, cell_list, cell_index, cell_neigh, rc, traj['dim'], traj['N'])
+    cluster_id = sort_clusters(cluster_id)
+    num_clusters[-1] = np.max(cluster_id)
+    unique, counts = np.unique(cluster_id, return_counts=True)          
+
+    #Save cluster-labeled data to file
+    #TODO: change this to modify original traj.h5 file
+    cluster_file.create_dataset('/data/time', data=np.array([traj['times'][-1]]), chunks=True, maxshape=(None,))
+    cluster_file.create_dataset('/data/cluster_ids', data=np.array([cluster_id]), chunks=True, maxshape=(None,traj['N']))
+
+    cluster_file.close()
 
 def cluster_traj(traj,out_folder,rc):
 
@@ -179,13 +225,14 @@ def get_avg_mass_weighted_root_size(n, p):
 #Cluster functions
 ##################
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def get_clusters(pos, edges, head, cell_list, cell_index, cell_neigh, rc, dim, N):
 
     #Returns a numpy array specifying the index of the cluster
     #to which each node belongs
 
-    cluster_id = np.zeros((N,),dtype=numba.int32)
+    #cluster_id = np.zeros((N,),dtype=numba.int32)
+    cluster_id = np.zeros((N,),dtype=int)
 
     clusternumber = 0
     for i in range(N):
@@ -196,7 +243,7 @@ def get_clusters(pos, edges, head, cell_list, cell_index, cell_neigh, rc, dim, N
 
     return cluster_id
 
-@numba.jit(nopython=True)
+#@numba.jit(nopython=True)
 def harvest_cluster(clusternumber, ipart, cluster_id, pos, edges, head, cell_list, cell_index, cell_neigh, rc, dim):
 
     #Note that due to limitations of numba this is restricted to 2d for now
