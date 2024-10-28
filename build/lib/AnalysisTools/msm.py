@@ -33,7 +33,7 @@ def main():
     traj_type = args.traj_type
     input_folder = args.input_folder
     output_folder = args.output_folder
-    lag_time = args.lag_time
+    lag_time = float(args.lag_time)
     input_file = args.input_file
     state_decomp_type = args.state_decomp_type
     
@@ -73,12 +73,12 @@ def build_msm(traj_type, input_folder, input_file, output_folder, lag_time, stat
         C = get_count_matrix(microstate_traj, lag_num, nstates)
         
         #Apply detailed balance and normalize count matrix
-        C = C/np.linalg.norm(C, axis=0)
-        C = (C+C.T)/2 #symmetrize count matrix to enforce detailed balance
+        C = C/np.sum(C, axis=0)
+        #C = (C+C.T)/2 #symmetrize count matrix to enforce detailed balance
         print(C)
         
         #Output transition matrix 
-        np.savez(output_folder + '/tmat_tlag=%f.npz' % lag_time)
+        np.savez(output_folder + '/tmat_tlag=%f.npz' % lag_time, tmat=C, lag_time=lag_time)
 
     elif traj_type=='multiple':
         print('Error: "multiple" option not yet implemented!')
@@ -90,7 +90,25 @@ def build_msm(traj_type, input_folder, input_file, output_folder, lag_time, stat
     return 0
 
 def analyze_msm(my_msm):
-    return 0   
+    
+    """
+    Analyze an MSM
+    
+    INPUT: Dictionary containing MSM transition matrix (square numpy array) and lag time (float)
+    OUTPUT: Dictionary with quantities of interest (eigenvalue and eigenvectors,
+            trajectory starting from one microstate).
+    """
+    
+    lag_time = my_msm['lag_time']
+    tmat = my_msm['tmat']
+    
+    #Eigenvalue decomposition
+    evals, evecs = np.linalg.eig(tmat)
+    
+    print('eigenvalues:', evals)
+    print('eigenvectors:', evecs)
+    print('implied timescales:', -lag_time/np.log(evals))
+    
 
 
 def get_state_decomp_traj(traj, state_decomp_type):
