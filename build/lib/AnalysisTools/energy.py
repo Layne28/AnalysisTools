@@ -12,14 +12,14 @@ import AnalysisTools.measurement_tools as measurement_tools
 def main():
 
     ### Load data ####
-    myfile = sys.argv[1] #Expects .h5 input file
+    myfile = sys.argv[1] #Expects .h5 or .gsd input file
     traj = particle_io.load_traj(myfile) #Extract data
     pe = traj['potential_energy']
     ke = get_kinetic_energy(traj['vel'])
     net_active_force = get_net_force(traj['active_force'])
     net_conservative_force = get_net_force(traj['conservative_force'])
 
-    #### Output average energies and forces to file in same directory as input h5 file ####        
+    #### Output average energies and forces to file in same directory as input h5/gsd file ####        
     outfile = '/'.join((myfile.split('/'))[:-1]) + '/energies_and_forces.npz'
     np.savez(outfile, times=traj['times'], potential_energy=pe, kinetic_energy=ke, net_active_force=net_active_force, net_conservative_force=net_conservative_force)
 
