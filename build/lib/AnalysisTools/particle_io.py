@@ -76,6 +76,8 @@ def load_traj(myfile):
         times = []
         edges = traj[0].configuration.box[:3]
         dim = traj[0].configuration.dimensions
+        particle_types = traj[0].particles.types
+        particle_typeids = traj[0].particles.typeid
 
         if traj[0].bonds.N>0:
             has_topology = 1
@@ -123,7 +125,10 @@ def load_traj(myfile):
             active_force = log['log/particles/ActiveNoiseForce/ActiveNoiseForce/forces']
         else:
             active_force = np.zeros((nframes, pos.shape[1], pos.shape[2]))
-        times = log['log/Time/time']
+        if 'log/Time/time' in log:
+            times = log['log/Time/time']
+        else:
+            times = np.arange(0,nframes,1) 
         vel = conservative_force + active_force #WARNING: assumes friction = 1!
         N = pos.shape[1]
 
@@ -138,6 +143,8 @@ def load_traj(myfile):
         traj_dict['edges'] = edges
         traj_dict['N'] = N
         traj_dict['dim'] = dim
+        traj_dict['particle_types'] = particle_types
+        traj_dict['particle_typeids'] = particle_typeids
         if has_topology:
             traj_dict['bonds'] = bonds
 

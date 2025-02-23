@@ -37,9 +37,9 @@ def main():
     out_folder = '/'.join((myfile.split('/'))[:-1])
 
     #Do clustering if files don't already exist
-    if not(os.path.isfile(out_folder + '/clusters_rc=%f.h5' % rc)):
-        traj = io.load_traj(myfile) #Extract data
-        cluster_traj(traj,out_folder,rc)
+    #if not(os.path.isfile(out_folder + '/clusters_rc=%f.h5' % rc)):
+    traj = io.load_traj(myfile) #Extract data
+    cluster_traj(traj,out_folder,rc)
 
     #Get CSD
     csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0)
