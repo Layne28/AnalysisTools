@@ -11,6 +11,7 @@ AnalysisTools/histogram.py
 AnalysisTools/inverse_ft.py
 AnalysisTools/measurement_tools.py
 AnalysisTools/msd.py
+AnalysisTools/msm.py
 AnalysisTools/noise_stats.py
 AnalysisTools/particle_io.py
 AnalysisTools/structure_factor.py

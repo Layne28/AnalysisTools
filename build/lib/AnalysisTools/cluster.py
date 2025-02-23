@@ -23,15 +23,22 @@ def main():
 
     sys.setrecursionlimit(25000) #allow more recursion
 
-    parser = argparse.ArgumentParser(description='Cluster particles in trajectory and compute CSD.')
+    parser = argparse.ArgumentParser(description='Cluster particles in trajectory and compute CSD or Rg.')
     parser.add_argument('file', help='Trajectory file (h5md format).')
     parser.add_argument('--rc', default=1.5, help='Cutoff distance for defining cluster.')
     parser.add_argument('--nchunks', default=5, help='Divide trajectory into this many chunks.')
+    parser.add_argument('--quantity', default='csd', help='csd or rg or all')
 
     args = parser.parse_args()
     myfile = args.file
     rc = float(args.rc)
     nchunks = args.nchunks
+    quantity = args.quantity
+
+    #Test Rg
+    print('testing Rg...')
+    test_rg()
+    print('done')
 
     ### Load data ####
     out_folder = '/'.join((myfile.split('/'))[:-1])
@@ -41,10 +48,22 @@ def main():
     traj = io.load_traj(myfile) #Extract data
     cluster_traj(traj,out_folder,rc)
 
-    #Get CSD
-    csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0)
 
-    np.savez(out_folder + '/csd_rc=%f.npz' % rc, **csd)
+    #Get CSD
+    if quantity=='csd':
+        csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0)
+        np.savez(out_folder + '/csd_rc=%f.npz' % rc, **csd)
+    elif quantity=='rg':
+        rg = get_rg(traj['pos'], traj['edges'], out_folder + '/clusters_rc=%f.h5' % rc)
+        np.savez(out_folder + '/rg_rc=%f.npz' % rc, **rg)
+    elif quantity=='all':
+        csd = get_csd(out_folder + '/clusters_rc=%f.h5' % rc, nchunks=nchunks, nskip=0)
+        rg = get_rg(traj['pos'], out_folder + '/clusters_rc=%f.h5' % rc)
+        np.savez(out_folder + '/csd_rc=%f.npz' % rc, **csd)
+        np.savez(out_folder + '/rg_rc=%f.npz' % rc, **rg)
+    else:
+        print('Error: quantity not recognized.')
+        exit()
 
 ##################
 #Get Cluster Size Distribution (CSD) from cluster-labeled trajectory
@@ -123,6 +142,82 @@ def get_csd(cluster_traj_name, nchunks=5, nskip=0):
 
     return the_dict
 
+##################
+#Get radius of gyration (Rg) of different clusters from cluster-labeled trajectory
+##################
+
+def get_rg(pos, edges, cluster_traj_name):
+
+    print('getting Rg')
+
+    #Read in data
+    clusters = h5py.File(cluster_traj_name, 'r')
+    times = np.array(clusters['data/time'])
+    cluster_ids = np.array(clusters['/data/cluster_ids'])
+    clusters.close()
+
+    traj_length = times.shape[0]
+    N = cluster_ids.shape[1]
+    num_clusters = np.zeros(traj_length)
+    largest_cluster_rg = []
+
+    #Compute Rg of largest cluster
+    for t in range(traj_length):
+        cluster_id = cluster_ids[t,:]
+        num_clusters[t] = np.max(cluster_id)
+        unique, counts = np.unique(cluster_id, return_counts=True)
+        cluster_pos = pos[t,cluster_id==1,:]
+        Rg = rg(cluster_pos, edges)
+        largest_cluster_rg.append(Rg)
+        if t==traj_length-1:
+            print(unique)
+            print(counts)
+            print(Rg)
+            print(cluster_pos.shape)
+
+    thedict = {}
+    thedict['times'] = times
+    thedict['largest_cluster_rg'] = np.array(largest_cluster_rg)
+
+    return thedict
+
+@numba.jit(nopython=True)
+def rg(pos, edges):
+
+    '''
+    Compute radius of gyration, Rg
+
+    Rg = \sqrt{(1/N)\sum_i^N|r_i-r_com|^2}
+    '''
+
+    #Compute mean position
+    Rg = 0
+    N = pos.shape[0]
+    rcom=np.zeros(pos[0,:].shape)
+    for i in range(N):
+        rcom += pos[i,:]
+    rcom = rcom/N
+    #rcom = np.mean(pos, axis=0)
+    print('rcom:', rcom)
+    dr = np.zeros(pos.shape)
+    for i in range(N):
+        dr[i,:] = tools.get_min_disp(pos[i,:], rcom, edges)
+    print(dr)
+    for i in range(N):
+        Rg += np.dot(dr[i,:],dr[i,:])
+    Rg *= (1.0/N)
+    Rg = np.sqrt(Rg)
+
+    return Rg
+
+def test_rg():
+    pos = np.array([[0,0,0],[0,0,0]])
+    edges = np.array([200,200,200])
+    Rg = rg(pos, edges)
+    print(Rg) #should be 0
+    pos = np.array([[0,0,0],[1,0,0]])
+    Rg = rg(pos, edges)
+    print(Rg) #should be 0.5
         
 ##################
 #Cluster an input trajectory
